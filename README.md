@@ -33,6 +33,8 @@ public class TestModel {
                 //这里写自定义验证，比如身份证等用自定义注解无法验证的方法，不需要的话，此参数传null，或返回null或空list
                     List<ValidateResult> list = new ArrayList<>();
                     if (!m.getName().startsWith("王")) {
+                        //new ValidateResult第一个参数为字段名，框架根据字段名定位单元格地址
+                        //new ValidateResult第二个参数为错误信息
                         list.add(new ValidateResult("name", "用户不姓王"));
                     }
                    return list; 
