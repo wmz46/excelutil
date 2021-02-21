@@ -26,6 +26,7 @@ import java.util.function.Function;
 /**
  * @author wangmianzhe
  */
+@SuppressWarnings("unchecked")
 public class ExcelUtil {
     /**
      * 根据注解验证对象
@@ -52,15 +53,18 @@ public class ExcelUtil {
         return result;
     }
 
+
     /**
      * 导入excel
      *
      * @param filepath           excel文件路径
      * @param clazz              中间类类型
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param customValidateFunc 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可
+     * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     **/
+     * @param <T> 中间类
+     * @return 返回导入结果
+     */
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant,
@@ -85,9 +89,11 @@ public class ExcelUtil {
      * @param bytes              excel文件的字节数组
      * @param clazz              中间类类型
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param customValidateFunc 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可
+     * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     **/
+     * @param <T> 中间类
+     * @return 返回导入结果
+     */
     public static <T> ImportResult<T> importExcel(
             byte[] bytes, Class<T> clazz,
             boolean faultTolerant,

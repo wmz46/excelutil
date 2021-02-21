@@ -12,22 +12,12 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 
 public @interface ExcelColumn {
-    /**
-     * excel第一行标题名称
-     *
-     * @return
-     */
+    //excel第一行标题名称
     String value();
 
-    /**
-     * 列宽，字符数 像素点 = 字符数*256
-     */
+    //列宽，字符数 像素点 = 字符数*256
     int width() default -1;
 
-    /**
-     * 排序，导出用，越小排越前,默认100
-     *
-     * @return
-     */
+    // 排序，导出用，越小排越前,默认100
     int order() default 100;
 }
