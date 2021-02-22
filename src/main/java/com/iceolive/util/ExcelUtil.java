@@ -3,6 +3,7 @@ package com.iceolive.util;
 import com.iceolive.util.annotation.ExcelColumn;
 import com.iceolive.util.model.ImportResult;
 import com.iceolive.util.model.ValidateResult;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
@@ -11,8 +12,6 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.ReflectionUtils;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.Valid;
@@ -62,7 +61,7 @@ public class ExcelUtil {
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @param <T> 中间类
+     * @param <T>                中间类
      * @return 返回导入结果
      */
     public static <T> ImportResult importExcel(
@@ -91,7 +90,7 @@ public class ExcelUtil {
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @param <T> 中间类
+     * @param <T>                中间类
      * @return 返回导入结果
      */
     public static <T> ImportResult<T> importExcel(
@@ -152,8 +151,8 @@ public class ExcelUtil {
 
                         try {
                             Object value = StringUtil.parse(str, field.getType());
-                            ReflectionUtils.makeAccessible(field);
-                            ReflectionUtils.setField(field, obj, value);
+                            field.setAccessible(true);
+                            field.set(obj, value);
                         } catch (Exception e) {
                             validate = false;
                             ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
@@ -240,9 +239,17 @@ public class ExcelUtil {
                     for (Field field : clazz.getDeclaredFields()) {
                         ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
                         if (excelColumn != null) {
-                            if (excelColumn.value().equals(title)) {
-                                headMap.put(c, field);
+                            if (StringUtil.isNotEmpty(excelColumn.value())) {
+                                if (excelColumn.value().equals(title)) {
+                                    headMap.put(c, field);
+                                }
+                            } else {
+                                //如果ExcelColumn不指定名称，则使用字段名匹配
+                                if (field.getName().equals(title)) {
+                                    headMap.put(c, field);
+                                }
                             }
+
                         }
                     }
 
