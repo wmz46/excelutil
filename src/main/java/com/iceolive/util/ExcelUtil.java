@@ -17,6 +17,8 @@ import javax.validation.Validation;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 
@@ -162,7 +164,7 @@ public class ExcelUtil {
                         String str = null;
                         CellType cellType = cell.getCellTypeEnum();
                         //支持公式单元格
-                        if(cellType == CellType.FORMULA){
+                        if (cellType == CellType.FORMULA) {
                             cellType = cell.getCachedFormulaResultTypeEnum();
                         }
                         switch (cellType) {
@@ -187,9 +189,11 @@ public class ExcelUtil {
                         try {
                             for (Field field : fields) {
                                 Object value = null;
-                                if (isDateCell) {
+                                if (isDateCell || field.getType().isAssignableFrom(Date.class) || field.getType().isAssignableFrom(LocalDateTime.class) || field.getType().isAssignableFrom(LocalDate.class)) {
                                     //特殊处理日期格式
-                                    value = StringUtil.parse(str, dateFormat, field.getType());
+                                    if (!StringUtil.isBlank(str)) {
+                                        value = StringUtil.parse(str, dateFormat, field.getType());
+                                    }
                                 } else if (field.getType().isAssignableFrom(boolean.class) || field.getType().isAssignableFrom(Boolean.class)) {
                                     ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
                                     value = StringUtil.parseBoolean(str, excelColumn.trueString(), excelColumn.falseString(), field.getType());
