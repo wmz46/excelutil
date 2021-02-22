@@ -1,5 +1,6 @@
 package com.iceolive.util;
 
+import com.iceolive.util.annotation.Excel;
 import com.iceolive.util.annotation.ExcelColumn;
 import com.iceolive.util.model.ImportResult;
 import com.iceolive.util.model.ValidateResult;
@@ -112,7 +113,7 @@ public class ExcelUtil {
         }
         Sheet sheet = workbook.getSheetAt(0);
         //列序号和字段的map
-        Map<Integer, Field> headMap = getHeadMap(sheet, clazz);
+        Map<Integer, List<Field>> headMap = getHeadMap(sheet, clazz);
         //设置总记录数
         result.setTotalCount(sheet.getLastRowNum());
         Map<Integer, T> list = new LinkedHashMap<>();
@@ -128,7 +129,7 @@ public class ExcelUtil {
                 boolean validate = true;
                 for (Integer c : headMap.keySet()) {
                     Cell cell = row.getCell(c);
-                    Field field = headMap.get(c);
+                    List<Field> fields = headMap.get(c);
                     if (null != cell) {
                         String str = null;
                         switch (cell.getCellTypeEnum()) {
@@ -150,9 +151,11 @@ public class ExcelUtil {
                         }
 
                         try {
-                            Object value = StringUtil.parse(str, field.getType());
-                            field.setAccessible(true);
-                            field.set(obj, value);
+                            for (Field field : fields) {
+                                Object value = StringUtil.parse(str, field.getType());
+                                field.setAccessible(true);
+                                field.set(obj, value);
+                            }
                         } catch (Exception e) {
                             validate = false;
                             ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
@@ -164,11 +167,11 @@ public class ExcelUtil {
                     }
                 }
                 List<ValidateResult> validateResults = validate(obj);
-                validate = isValidate(result, headMap, row, validate, validateResults);
+                validate = isValidate(result, headMap, row, validate, validateResults,clazz);
 
                 if (customValidateFunc != null) {
                     List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
-                    validate = isValidate(result, headMap, row, validate, customValidateResults);
+                    validate = isValidate(result, headMap, row, validate, customValidateResults,clazz);
                 }
                 if (validate) {
                     list.put(row.getRowNum(), obj);
@@ -226,9 +229,9 @@ public class ExcelUtil {
      * @param <T>
      * @return
      */
-    private static <T> Map<Integer, Field> getHeadMap(Sheet sheet, Class<T> clazz) {
+    private static <T> Map<Integer, List<Field>> getHeadMap(Sheet sheet, Class<T> clazz) {
         //列序号和字段的map
-        Map<Integer, Field> headMap = new HashMap<>();
+        Map<Integer, List<Field>> headMap = new HashMap<>();
         //获取字段和列序号的对应关系
         if (sheet.getLastRowNum() > 0) {
             Row row = sheet.getRow(0);
@@ -241,12 +244,24 @@ public class ExcelUtil {
                         if (excelColumn != null) {
                             if (StringUtil.isNotEmpty(excelColumn.value())) {
                                 if (excelColumn.value().equals(title)) {
-                                    headMap.put(c, field);
+                                    if (headMap.containsKey(c)) {
+                                        headMap.get(c).add(field);
+                                    } else {
+                                        List<Field> fieldList = new ArrayList<>();
+                                        fieldList.add(field);
+                                        headMap.put(c, fieldList);
+                                    }
                                 }
                             } else {
                                 //如果ExcelColumn不指定名称，则使用字段名匹配
                                 if (field.getName().equals(title)) {
-                                    headMap.put(c, field);
+                                    if (headMap.containsKey(c)) {
+                                        headMap.get(c).add(field);
+                                    } else {
+                                        List<Field> fieldList = new ArrayList<>();
+                                        fieldList.add(field);
+                                        headMap.put(c, fieldList);
+                                    }
                                 }
                             }
 
@@ -269,19 +284,46 @@ public class ExcelUtil {
      * @param validateResults
      * @return
      */
-    private static boolean isValidate(ImportResult result, Map<Integer, Field> headMap, Row row, boolean validate, List<ValidateResult> validateResults) {
+    private static boolean isValidate(ImportResult result, Map<Integer, List<Field>> headMap, Row row, boolean validate, List<ValidateResult> validateResults, Class<?> clazz) {
         if (validateResults != null && !validateResults.isEmpty()) {
             validate = false;
             for (ValidateResult v : validateResults) {
-                for (Map.Entry<Integer, Field> m : headMap.entrySet()) {
-                    if (m.getValue().getName().equals(v.getFieldName())) {
-                        ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
-                        errorMessage.setRow(row.getRowNum());
-                        errorMessage.setCell(new CellAddress(row.getRowNum(), m.getKey()).toString());
-                        errorMessage.setMessage(v.getMessage());
-                        result.getErrors().add(errorMessage);
+                //错误是否在单元格内
+                boolean errorInCell = false;
+                for (Map.Entry<Integer, List<Field>> m : headMap.entrySet()) {
+                    List<Field> fields = m.getValue();
+                    boolean stop = false;
+                    for (Field field : fields) {
+                        if (field.getName().equals(v.getFieldName())) {
+                            ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                            errorMessage.setRow(row.getRowNum());
+                            errorMessage.setCell(new CellAddress(row.getRowNum(), m.getKey()).toString());
+                            errorMessage.setMessage(v.getMessage());
+                            result.getErrors().add(errorMessage);
+                            stop = true;
+                            errorInCell = true;
+                            break;
+                        }
+                    }
+                    if (stop) {
                         break;
                     }
+                }
+                if (!errorInCell) {
+                    String fieldName = v.getFieldName();
+                    String columnName = fieldName;
+                    Field field = Arrays.stream(clazz.getDeclaredFields()).filter(m -> m.getName().equals(fieldName)).findFirst().orElse(null);
+                    if (field != null) {
+                        String title = field.getAnnotation(ExcelColumn.class).value();
+                        if (StringUtil.isNotEmpty(title)) {
+                            columnName = title;
+                        }
+                    }
+                    //如果错误不在单元格内，不
+                    ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                    errorMessage.setRow(row.getRowNum());
+                    errorMessage.setMessage(v.getMessage() + "\n请检查[" + columnName + "]列是否存在");
+                    result.getErrors().add(errorMessage);
                 }
             }
 
