@@ -7,10 +7,7 @@ import com.iceolive.util.model.ValidateResult;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -163,7 +160,12 @@ public class ExcelUtil {
                     String dateFormat = "yyyy-MM-dd HH:mm:ss";
                     if (null != cell) {
                         String str = null;
-                        switch (cell.getCellTypeEnum()) {
+                        CellType cellType = cell.getCellTypeEnum();
+                        //支持公式单元格
+                        if(cellType == CellType.FORMULA){
+                            cellType = cell.getCachedFormulaResultTypeEnum();
+                        }
+                        switch (cellType) {
                             case NUMERIC:
                                 if (HSSFDateUtil.isCellDateFormatted(cell)) {
                                     isDateCell = true;
