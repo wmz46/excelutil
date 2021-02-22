@@ -54,6 +54,34 @@ public class ExcelUtil {
     }
 
 
+    public static <T> ImportResult importExcel(
+            String filepath, Class<T> clazz,
+            boolean faultTolerant) {
+        return importExcel(filepath, clazz, faultTolerant, null, null);
+
+    }
+
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz,
+            boolean faultTolerant) {
+        return importExcel(bytes, clazz, faultTolerant, null, null);
+    }
+
+    public static <T> ImportResult importExcel(
+            String filepath, Class<T> clazz,
+            boolean faultTolerant,
+            Function<T, Boolean> importFunc) {
+        return importExcel(filepath, clazz, faultTolerant, null, importFunc);
+
+    }
+
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz,
+            boolean faultTolerant,
+            Function<T, Boolean> importFunc) {
+        return importExcel(bytes, clazz, faultTolerant, null, importFunc);
+    }
+
     /**
      * 导入excel
      *
