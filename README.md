@@ -5,7 +5,7 @@
 <dependency>
   <groupId>com.iceolive</groupId>
   <artifactId>excelutil</artifactId>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
 </dependency>
 ```
 ## 二、快速开始
@@ -20,6 +20,12 @@ public class TestModel {
     @NotBlank//验证注解
     @ExcelColumn("姓名")//注解excel的列标题
     private String name; 
+    @ExcelColumn(trueString = "是",falseString = "否") //支持自定义布尔值
+    private Boolean agree;
+    @ExcelColumn//支持日期类型
+    private Date birth;  
+    @ExcelColumn("birth")//支持一列匹配多个属性
+    private LocalDateTime birth1;
 }
 
 ```

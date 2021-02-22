@@ -16,6 +16,11 @@ public @interface ExcelColumn {
     //excel第一行标题名称
     String value() default "";
 
+
+    String trueString() default "true";
+
+    String falseString() default "false";
+
     //列宽，字符数 像素点 = 字符数*256
     int width() default -1;
 

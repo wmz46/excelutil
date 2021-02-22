@@ -160,6 +160,9 @@ public class ExcelUtil {
                                 if (isDateCell) {
                                     //特殊处理日期格式
                                     value = StringUtil.parse(str, dateFormat, field.getType());
+                                } else if (field.getType().isAssignableFrom(boolean.class) || field.getType().isAssignableFrom(Boolean.class)) {
+                                    ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
+                                    value = StringUtil.parseBoolean(str, excelColumn.trueString(), excelColumn.falseString(), field.getType());
                                 } else {
                                     value = StringUtil.parse(str, field.getType());
                                 }
