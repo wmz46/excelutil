@@ -130,12 +130,16 @@ public class ExcelUtil {
                 for (Integer c : headMap.keySet()) {
                     Cell cell = row.getCell(c);
                     List<Field> fields = headMap.get(c);
+                    //是否日期单元格
+                    boolean isDateCell = false;
+                    String dateFormat = "yyyy-MM-dd HH:mm:ss";
                     if (null != cell) {
                         String str = null;
                         switch (cell.getCellTypeEnum()) {
                             case NUMERIC:
                                 if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                                    str = String.valueOf(cell.getDateCellValue());
+                                    isDateCell = true;
+                                    str = StringUtil.format(cell.getDateCellValue(), dateFormat);
                                 } else {
                                     BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
                                     str = bd.stripTrailingZeros().toPlainString();
@@ -152,7 +156,14 @@ public class ExcelUtil {
 
                         try {
                             for (Field field : fields) {
-                                Object value = StringUtil.parse(str, field.getType());
+                                Object value = null;
+                                if (isDateCell) {
+                                    //特殊处理日期格式
+                                    value = StringUtil.parse(str, dateFormat, field.getType());
+                                } else {
+                                    value = StringUtil.parse(str, field.getType());
+                                }
+
                                 field.setAccessible(true);
                                 field.set(obj, value);
                             }
@@ -167,11 +178,11 @@ public class ExcelUtil {
                     }
                 }
                 List<ValidateResult> validateResults = validate(obj);
-                validate = isValidate(result, headMap, row, validate, validateResults,clazz);
+                validate = isValidate(result, headMap, row, validate, validateResults, clazz);
 
                 if (customValidateFunc != null) {
                     List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
-                    validate = isValidate(result, headMap, row, validate, customValidateResults,clazz);
+                    validate = isValidate(result, headMap, row, validate, customValidateResults, clazz);
                 }
                 if (validate) {
                     list.put(row.getRowNum(), obj);
