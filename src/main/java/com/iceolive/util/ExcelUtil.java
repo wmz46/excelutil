@@ -34,10 +34,11 @@ public class ExcelUtil {
 
     }
 
-    public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz,
+    public static <T> ImportResult importExcel(
+            String filepath, Class<T> clazz, int startRow,
             boolean faultTolerant) {
-        return importExcel(bytes, clazz, 0, faultTolerant, null, null);
+        return importExcel(filepath, clazz, startRow, faultTolerant, null, null);
+
     }
 
     public static <T> ImportResult importExcel(
@@ -48,41 +49,14 @@ public class ExcelUtil {
 
     }
 
-    public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz,
-            boolean faultTolerant,
-            Function<T, Boolean> importFunc) {
-        return importExcel(bytes, clazz, 0, faultTolerant, null, importFunc);
-    }
-
-
-    public static <T> ImportResult importExcel(
-            String filepath, Class<T> clazz, int startRow,
-            boolean faultTolerant) {
-        return importExcel(filepath, clazz, startRow, faultTolerant, null, null);
-
-    }
-
-    public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz, int startRow,
-            boolean faultTolerant) {
-        return importExcel(bytes, clazz, startRow, faultTolerant, null, null);
-    }
-
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz, int startRow,
             boolean faultTolerant,
             Function<T, Boolean> importFunc) {
         return importExcel(filepath, clazz, startRow, faultTolerant, null, importFunc);
-
     }
+   
 
-    public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz, int startRow,
-            boolean faultTolerant,
-            Function<T, Boolean> importFunc) {
-        return importExcel(bytes, clazz, startRow, faultTolerant, null, importFunc);
-    }
 
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
@@ -92,13 +66,7 @@ public class ExcelUtil {
         return importExcel(filepath, clazz, 0, faultTolerant, customValidateFunc, importFunc);
     }
 
-    public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz,
-            boolean faultTolerant,
-            Function<T, List<ValidateResult>> customValidateFunc,
-            Function<T, Boolean> importFunc) {
-        return importExcel(bytes, clazz, 0, faultTolerant, customValidateFunc, importFunc);
-    }
+
 
     /**
      * 导入excel
@@ -129,6 +97,40 @@ public class ExcelUtil {
             throw new RuntimeException(e);
         }
         return importExcel(bytes, clazz, startRow, faultTolerant, customValidateFunc, importFunc);
+    }
+
+
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz,
+            boolean faultTolerant) {
+        return importExcel(bytes, clazz, 0, faultTolerant, null, null);
+    }
+
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz, int startRow,
+            boolean faultTolerant) {
+        return importExcel(bytes, clazz, startRow, faultTolerant, null, null);
+    }
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz,
+            boolean faultTolerant,
+            Function<T, Boolean> importFunc) {
+        return importExcel(bytes, clazz, 0, faultTolerant, null, importFunc);
+    }
+
+
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz, int startRow,
+            boolean faultTolerant,
+            Function<T, Boolean> importFunc) {
+        return importExcel(bytes, clazz, startRow, faultTolerant, null, importFunc);
+    }
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz,
+            boolean faultTolerant,
+            Function<T, List<ValidateResult>> customValidateFunc,
+            Function<T, Boolean> importFunc) {
+        return importExcel(bytes, clazz, 0, faultTolerant, customValidateFunc, importFunc);
     }
 
     /**

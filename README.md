@@ -30,6 +30,14 @@ public class TestModel {
 
 ```
 ### 2.调用
+
+最简参数调用
+```java
+ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文件路径,也传excle文件的字节数组byte[],支持xls和xlsx。
+                 TestModel.class,//中间类类型
+                true//是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
+               );
+全参数调用
 ```java
  ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文件路径,也传excle文件的字节数组byte[],支持xls和xlsx。
                  TestModel.class,//中间类类型
@@ -55,6 +63,8 @@ public class TestModel {
                         throw new Exception("入库失败")
                     } 
                 });
+```
+
 ```
 ### 3.返回结果
 ```java
