@@ -86,6 +86,61 @@ ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文�
     importResult.getSuccessCount();
 
 ```
+### 4.json-schema验证
+注解验证虽然方便易用。但如果同个实体存在不同验证规则的场景，写在代码上维护起来还是不太方便。所以增加了json-schema验证方法。    
+4.1 定义json-schema
+```json
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 6
+    },
+    "age": {
+      "type": "number"
+    },
+    "birth": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "birth1": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "agree": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "name",
+    "age"
+  ]
+}
+```
+4.2 调用
+```java
+String schemaJson = yourLoadTextFromFile("schema.json")
+ ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",  TestModel.class,true, 0,
+        m -> {
+         return ExcelUtil.jsonSchemaValidate(schemaJson, m)
+           return list; 
+        },
+        m->{
+            return true;
+        });
+```
 ## 三、开发背景
 项目起源是我想设计一个工具类，作为导入excel数据的通用处理工具。    
 通常我们的excel模板并不是一一对应数据库的一张表。    

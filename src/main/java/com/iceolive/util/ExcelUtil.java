@@ -1,8 +1,15 @@
 package com.iceolive.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iceolive.util.annotation.ExcelColumn;
 import com.iceolive.util.model.ImportResult;
 import com.iceolive.util.model.ValidateResult;
+import com.networknt.schema.JsonSchema;
+import com.networknt.schema.JsonSchemaFactory;
+import com.networknt.schema.SpecVersionDetector;
+import com.networknt.schema.ValidationMessage;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -57,7 +64,6 @@ public class ExcelUtil {
     }
 
 
-
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant,
@@ -65,7 +71,6 @@ public class ExcelUtil {
             Function<T, Boolean> importFunc) {
         return importExcel(filepath, clazz, 0, faultTolerant, customValidateFunc, importFunc);
     }
-
 
 
     /**
@@ -111,6 +116,7 @@ public class ExcelUtil {
             boolean faultTolerant) {
         return importExcel(bytes, clazz, startRow, faultTolerant, null, null);
     }
+
     public static <T> ImportResult<T> importExcel(
             byte[] bytes, Class<T> clazz,
             boolean faultTolerant,
@@ -125,6 +131,7 @@ public class ExcelUtil {
             Function<T, Boolean> importFunc) {
         return importExcel(bytes, clazz, startRow, faultTolerant, null, importFunc);
     }
+
     public static <T> ImportResult<T> importExcel(
             byte[] bytes, Class<T> clazz,
             boolean faultTolerant,
@@ -294,6 +301,10 @@ public class ExcelUtil {
 
     }
 
+
+
+
+
     /**
      * 获取列序号和字段的对应关系
      *
@@ -405,6 +416,8 @@ public class ExcelUtil {
         return validate;
     }
 
+
+
     /**
      * 根据注解验证对象
      *
@@ -430,5 +443,35 @@ public class ExcelUtil {
         return result;
     }
 
+    /**
+     * json-schema验证
+     * @param schemaJson
+     * @param obj
+     * @return
+     */
+    public static List<ValidateResult> jsonSchemaValidate(String schemaJson, Object obj) {
+        List<ValidateResult> result = new ArrayList<>();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode schemaNode = mapper.readTree(schemaJson);
+            JsonSchema schema = JsonSchemaFactory.getInstance(SpecVersionDetector.detect(schemaNode)).getSchema(schemaNode);
+            JsonNode node = mapper.readTree(mapper.writeValueAsString(obj));
+            Set<ValidationMessage> errors = schema.validate(node);
+            for (ValidationMessage error : errors) {
+                String msg = error.getMessage();
+                String fieldName = error.getPath();
+                int split = msg.indexOf(":");
+                if (split > -1) {
+                    fieldName = msg.substring(2, split);
+                    msg = msg.substring(split + 1);
+
+                }
+                result.add(new ValidateResult(fieldName, msg));
+            }
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        return result;
+    }
 
 }
