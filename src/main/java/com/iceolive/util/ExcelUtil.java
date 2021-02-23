@@ -424,7 +424,7 @@ public class ExcelUtil {
      * @param obj 验证的对象
      * @return 返回验证列表
      */
-    private static List<ValidateResult> validate(@Valid Object obj) {
+    public static List<ValidateResult> validate(@Valid Object obj) {
         List<ValidateResult> result = new ArrayList<>();
         Set<ConstraintViolation<@Valid Object>> validateSet = Validation.buildDefaultValidatorFactory()
                 .getValidator()
