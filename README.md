@@ -23,8 +23,11 @@ public class TestModel {
     @ExcelColumn(trueString = "是",falseString = "否") //支持自定义布尔值
     private Boolean agree;
     @ExcelColumn//支持日期类型
+    @JsonFormat(pattern = "yyyy-MM-dd")//如果使用json-schema验证，必须添加
     private Date birth;  
     @ExcelColumn("birth")//支持一列匹配多个属性
+    @JsonSerialize(using = LocalDateTimeSerializer.class)//如果使用json-schema验证，必须添加
+    @JsonFormat(pattern = "yyyy-MM-dd")//如果使用json-schema验证，必须添加
     private LocalDateTime birth1;
 }
 
@@ -88,6 +91,7 @@ ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文�
 ```
 ### 4.json-schema验证
 注解验证虽然方便易用。但如果同个实体存在不同验证规则的场景，写在代码上维护起来还是不太方便。所以增加了json-schema验证方法。    
+注意：对于日期类型，json对应的是字符串，记得在实体类的字段上添加@JsonFormat注解       
 4.1 定义json-schema
 ```json
 {
