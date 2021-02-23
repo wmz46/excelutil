@@ -69,11 +69,21 @@ ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文�
 ### 3.返回结果
 ```java
     ImportResult importResult = ExcelUtil.importExcel(...);
-    importResult.getSucesses();//导入成功的记录集，类型Map<Integer,T>,key为行号，value为中间类的对象
-    importResult.getErrors();//导入失败的记录集，类型List<ErrorMessage>，ErrorMessage 包括 row(行号),cell(单元格地址), message(错误信息)三个属性
-    importResult.getTotalCount();//excel的总记录数，不包括标题
-    importResult.getSuccessList();//导入成功的记录集，类型List<T>
-    importResult.getSuccessCount();//导入成功的记录条数。
+    //导入成功的记录集，类型Map<Integer,T>,key为行号，value为中间类的对象
+    importResult.getSucesses();
+    //导入失败的记录集，类型List<ImportResult.ErrorMessage>
+    //ImportResult.ErrorMessage 包括 row(行号),cell(单元格地址), message(错误信息)三个属性
+    //ImportResult.ErrorMessage的行号是一定会有的，但是单元格地址在以下三种错误里面不会有。
+    // 1.找不到列，由于没有列，所以也无法提示哪个单元格错误。
+    // 2.自定义验证函数返回的ValidateResult写错了字段名，同1也是会提示找不到列
+    // 3.入库函数时抛的异常也是不会提示到单元格。
+    importResult.getErrors();
+    //excel的总记录数，不包括标题
+    importResult.getTotalCount();
+    //导入成功的记录集，类型List<T>
+    importResult.getSuccessList();
+    //导入成功的记录条数。
+    importResult.getSuccessCount();
 
 ```
 ## 三、开发背景

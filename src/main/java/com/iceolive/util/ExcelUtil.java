@@ -55,7 +55,7 @@ public class ExcelUtil {
             Function<T, Boolean> importFunc) {
         return importExcel(filepath, clazz, startRow, faultTolerant, null, importFunc);
     }
-   
+
 
 
     public static <T> ImportResult importExcel(
