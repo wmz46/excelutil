@@ -5,7 +5,7 @@
 <dependency>
   <groupId>com.iceolive</groupId>
   <artifactId>excelutil</artifactId>
-  <version>0.0.2</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 ## 二、快速开始
@@ -34,6 +34,7 @@ public class TestModel {
  ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文件路径,也传excle文件的字节数组byte[],支持xls和xlsx。
                  TestModel.class,//中间类类型
                 true,//是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
+                0,//开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
                 m -> {
                 //m为中间类对象
                 //这里写自定义验证，比如身份证等用自定义注解无法验证的方法，不需要的话，此参数传null，或返回null或空list

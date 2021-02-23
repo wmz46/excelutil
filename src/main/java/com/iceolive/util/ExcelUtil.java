@@ -54,31 +54,31 @@ public class ExcelUtil {
 
 
     public static <T> ImportResult importExcel(
-            String filepath, Class<T> clazz,
+            String filepath, Class<T> clazz, int startRow,
             boolean faultTolerant) {
-        return importExcel(filepath, clazz, faultTolerant, null, null);
+        return importExcel(filepath, clazz, startRow, faultTolerant, null, null);
 
     }
 
     public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz,
+            byte[] bytes, Class<T> clazz, int startRow,
             boolean faultTolerant) {
-        return importExcel(bytes, clazz, faultTolerant, null, null);
+        return importExcel(bytes, clazz, startRow, faultTolerant, null, null);
     }
 
     public static <T> ImportResult importExcel(
-            String filepath, Class<T> clazz,
+            String filepath, Class<T> clazz, int startRow,
             boolean faultTolerant,
             Function<T, Boolean> importFunc) {
-        return importExcel(filepath, clazz, faultTolerant, null, importFunc);
+        return importExcel(filepath, clazz, startRow, faultTolerant, null, importFunc);
 
     }
 
     public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz,
+            byte[] bytes, Class<T> clazz, int startRow,
             boolean faultTolerant,
             Function<T, Boolean> importFunc) {
-        return importExcel(bytes, clazz, faultTolerant, null, importFunc);
+        return importExcel(bytes, clazz, startRow, faultTolerant, null, importFunc);
     }
 
     /**
@@ -86,6 +86,7 @@ public class ExcelUtil {
      *
      * @param filepath           excel文件路径
      * @param clazz              中间类类型
+     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
@@ -94,6 +95,7 @@ public class ExcelUtil {
      */
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
+            int startRow,
             boolean faultTolerant,
             Function<T, List<ValidateResult>> customValidateFunc,
             Function<T, Boolean> importFunc) {
@@ -107,7 +109,7 @@ public class ExcelUtil {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return importExcel(bytes, clazz, faultTolerant, customValidateFunc, importFunc);
+        return importExcel(bytes, clazz, startRow, faultTolerant, customValidateFunc, importFunc);
     }
 
     /**
@@ -115,6 +117,7 @@ public class ExcelUtil {
      *
      * @param bytes              excel文件的字节数组
      * @param clazz              中间类类型
+     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
@@ -123,6 +126,7 @@ public class ExcelUtil {
      */
     public static <T> ImportResult<T> importExcel(
             byte[] bytes, Class<T> clazz,
+            int startRow,
             boolean faultTolerant,
             Function<T, List<ValidateResult>> customValidateFunc,
             Function<T, Boolean> importFunc) {
@@ -140,11 +144,11 @@ public class ExcelUtil {
         }
         Sheet sheet = workbook.getSheetAt(0);
         //列序号和字段的map
-        Map<Integer, List<Field>> headMap = getHeadMap(sheet, clazz);
+        Map<Integer, List<Field>> headMap = getHeadMap(sheet, clazz, startRow);
         //设置总记录数
-        result.setTotalCount(sheet.getLastRowNum());
+        result.setTotalCount(sheet.getLastRowNum() - startRow);
         Map<Integer, T> list = new LinkedHashMap<>();
-        for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+        for (int r = startRow + 1; r <= sheet.getLastRowNum(); r++) {
             Row row = sheet.getRow(r);
             if (null != row) {
                 T obj = null;
@@ -274,15 +278,16 @@ public class ExcelUtil {
      *
      * @param sheet
      * @param clazz
+     * @param rowNum 标题行号
      * @param <T>
      * @return
      */
-    private static <T> Map<Integer, List<Field>> getHeadMap(Sheet sheet, Class<T> clazz) {
+    private static <T> Map<Integer, List<Field>> getHeadMap(Sheet sheet, Class<T> clazz, int rowNum) {
         //列序号和字段的map
         Map<Integer, List<Field>> headMap = new HashMap<>();
         //获取字段和列序号的对应关系
-        if (sheet.getLastRowNum() > 0) {
-            Row row = sheet.getRow(0);
+        if (sheet.getLastRowNum() > rowNum) {
+            Row row = sheet.getRow(rowNum);
             for (int c = 0; c < row.getLastCellNum(); c++) {
                 Cell cell = row.getCell(c);
                 if (null != cell) {
