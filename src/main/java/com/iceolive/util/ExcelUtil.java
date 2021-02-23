@@ -1,6 +1,5 @@
 package com.iceolive.util;
 
-import com.iceolive.util.annotation.Excel;
 import com.iceolive.util.annotation.ExcelColumn;
 import com.iceolive.util.model.ImportResult;
 import com.iceolive.util.model.ValidateResult;
@@ -27,29 +26,33 @@ import java.util.function.Function;
  */
 @SuppressWarnings("unchecked")
 public class ExcelUtil {
-    /**
-     * 根据注解验证对象
-     *
-     * @param obj 验证的对象
-     * @return 返回验证列表
-     */
-    private static List<ValidateResult> validate(@Valid Object obj) {
-        List<ValidateResult> result = new ArrayList<>();
-        Set<ConstraintViolation<@Valid Object>> validateSet = Validation.buildDefaultValidatorFactory()
-                .getValidator()
-                .validate(obj, new Class[0]);
-        if (!CollectionUtils.isEmpty(validateSet)) {
-            validateSet.stream().forEach((v) -> {
-                String msg = v.getMessage();
-                if (StringUtil.isEmpty(msg)) {
-                    msg = "参数输入有误";
-                }
-                result.add(new ValidateResult(v.getPropertyPath().toString(), msg));
-            });
 
+    public static <T> ImportResult importExcel(
+            String filepath, Class<T> clazz,
+            boolean faultTolerant) {
+        return importExcel(filepath, clazz, 0, faultTolerant, null, null);
 
-        }
-        return result;
+    }
+
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz,
+            boolean faultTolerant) {
+        return importExcel(bytes, clazz, 0, faultTolerant, null, null);
+    }
+
+    public static <T> ImportResult importExcel(
+            String filepath, Class<T> clazz,
+            boolean faultTolerant,
+            Function<T, Boolean> importFunc) {
+        return importExcel(filepath, clazz, 0, faultTolerant, null, importFunc);
+
+    }
+
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz,
+            boolean faultTolerant,
+            Function<T, Boolean> importFunc) {
+        return importExcel(bytes, clazz, 0, faultTolerant, null, importFunc);
     }
 
 
@@ -79,6 +82,22 @@ public class ExcelUtil {
             boolean faultTolerant,
             Function<T, Boolean> importFunc) {
         return importExcel(bytes, clazz, startRow, faultTolerant, null, importFunc);
+    }
+
+    public static <T> ImportResult importExcel(
+            String filepath, Class<T> clazz,
+            boolean faultTolerant,
+            Function<T, List<ValidateResult>> customValidateFunc,
+            Function<T, Boolean> importFunc) {
+        return importExcel(filepath, clazz, 0, faultTolerant, customValidateFunc, importFunc);
+    }
+
+    public static <T> ImportResult<T> importExcel(
+            byte[] bytes, Class<T> clazz,
+            boolean faultTolerant,
+            Function<T, List<ValidateResult>> customValidateFunc,
+            Function<T, Boolean> importFunc) {
+        return importExcel(bytes, clazz, 0, faultTolerant, customValidateFunc, importFunc);
     }
 
     /**
@@ -382,6 +401,31 @@ public class ExcelUtil {
 
         }
         return validate;
+    }
+
+    /**
+     * 根据注解验证对象
+     *
+     * @param obj 验证的对象
+     * @return 返回验证列表
+     */
+    private static List<ValidateResult> validate(@Valid Object obj) {
+        List<ValidateResult> result = new ArrayList<>();
+        Set<ConstraintViolation<@Valid Object>> validateSet = Validation.buildDefaultValidatorFactory()
+                .getValidator()
+                .validate(obj, new Class[0]);
+        if (!CollectionUtils.isEmpty(validateSet)) {
+            validateSet.stream().forEach((v) -> {
+                String msg = v.getMessage();
+                if (StringUtil.isEmpty(msg)) {
+                    msg = "参数输入有误";
+                }
+                result.add(new ValidateResult(v.getPropertyPath().toString(), msg));
+            });
+
+
+        }
+        return result;
     }
 
 
