@@ -10,12 +10,13 @@ import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersionDetector;
 import com.networknt.schema.ValidationMessage;
+import lombok.var;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellAddress;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.usermodel.*;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.Valid;
@@ -193,32 +194,34 @@ public class ExcelUtil {
                     boolean isDateCell = false;
                     String dateFormat = "yyyy-MM-dd HH:mm:ss";
                     if (null != cell) {
-                        String str = null;
-                        CellType cellType = cell.getCellTypeEnum();
-                        //支持公式单元格
-                        if (cellType == CellType.FORMULA) {
-                            cellType = cell.getCachedFormulaResultTypeEnum();
-                        }
-                        switch (cellType) {
-                            case NUMERIC:
-                                if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                                    isDateCell = true;
-                                    str = StringUtil.format(cell.getDateCellValue(), dateFormat);
-                                } else {
-                                    BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
-                                    str = bd.stripTrailingZeros().toPlainString();
-                                }
-                                break;
-                            case BOOLEAN:
-                                str = String.valueOf(cell.getBooleanCellValue());
-                                break;
-                            case STRING:
-                            default:
-                                str = cell.getStringCellValue();
-                                break;
-                        }
-
                         try {
+                            String str = null;
+                            CellType cellType = cell.getCellTypeEnum();
+                            //支持公式单元格
+                            if (cellType == CellType.FORMULA) {
+                                cellType = cell.getCachedFormulaResultTypeEnum();
+                            }
+                            switch (cellType) {
+                                case NUMERIC:
+                                    if (HSSFDateUtil.isCellDateFormatted(cell)) {
+                                        isDateCell = true;
+                                        str = StringUtil.format(cell.getDateCellValue(), dateFormat);
+                                    } else {
+                                        BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
+                                        str = bd.stripTrailingZeros().toPlainString();
+                                    }
+                                    break;
+                                case BOOLEAN:
+                                    str = String.valueOf(cell.getBooleanCellValue());
+                                    break;
+                                case ERROR:
+                                    throw new RuntimeException("单元格为错误值");
+                                case STRING:
+                                default:
+                                    str = cell.getStringCellValue();
+                                    break;
+                            }
+
                             for (Field field : fields) {
                                 Object value = null;
                                 if (isDateCell || field.getType().isAssignableFrom(Date.class) || field.getType().isAssignableFrom(LocalDateTime.class) || field.getType().isAssignableFrom(LocalDate.class)) {
@@ -300,9 +303,6 @@ public class ExcelUtil {
         return result;
 
     }
-
-
-
 
 
     /**
@@ -417,7 +417,6 @@ public class ExcelUtil {
     }
 
 
-
     /**
      * 根据注解验证对象
      *
@@ -445,6 +444,7 @@ public class ExcelUtil {
 
     /**
      * json-schema验证
+     *
      * @param schemaJson
      * @param obj
      * @return
@@ -473,9 +473,10 @@ public class ExcelUtil {
         }
         return result;
     }
-    public static List<Map<String,String>> excel2List( String filepath){
 
-        List<Map<String,String>> list = new ArrayList<>();
+    public static List<Map<String, String>> excel2List(String filepath) {
+
+        List<Map<String, String>> list = new ArrayList<>();
         FileInputStream stream;
         byte[] bytes = null;
         try {
@@ -499,11 +500,11 @@ public class ExcelUtil {
         Sheet sheet = workbook.getSheetAt(0);
         int startRow = 0;
         Row headRow = sheet.getRow(0);
-        Map<Integer,String> headMap = new HashMap<>();
+        Map<Integer, String> headMap = new HashMap<>();
         for (int c = 0; c < headRow.getLastCellNum(); c++) {
-            Cell cell= headRow.getCell(c);
-            if(null !=cell) {
-                if(cell.getStringCellValue().length()>0) {
+            Cell cell = headRow.getCell(c);
+            if (null != cell) {
+                if (cell.getStringCellValue().length() > 0) {
                     headMap.put(c, cell.getStringCellValue());
                 }
             }
@@ -511,7 +512,7 @@ public class ExcelUtil {
         for (int r = startRow + 1; r <= sheet.getLastRowNum(); r++) {
             Row row = sheet.getRow(r);
             if (null != row) {
-                Map<String,String> obj = new HashMap<>();
+                Map<String, String> obj = new HashMap<>();
                 for (Integer i : headMap.keySet()) {
                     Cell cell = row.getCell(i);
                     //是否日期单元格
@@ -540,7 +541,7 @@ public class ExcelUtil {
                                 str = cell.getStringCellValue();
                                 break;
                         }
-                        obj.put(headMap.get(i),str);
+                        obj.put(headMap.get(i), str);
                     }
                 }
                 list.add(obj);
@@ -549,6 +550,39 @@ public class ExcelUtil {
 
         }
         return list;
+    }
+
+    /**
+     * 生成导出excel模板
+     * @param clazz
+     * @param <T>
+     * @return
+     */
+    public static <T> byte[] createImportExcelTemplate(Class<T> clazz) {
+        var wb = new XSSFWorkbook();
+        XSSFSheet sheet = wb.createSheet("Sheet1");
+        int i = 0;
+        XSSFRow row = sheet.createRow(0);
+        for (Field field : clazz.getDeclaredFields()) {
+            ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
+            if (excelColumn != null) {
+                XSSFCell cell = row.createCell(i);
+                cell.setCellValue(excelColumn.value());
+                i++;
+            }
+        }
+        if (wb != null) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try {
+                wb.write(baos);
+                baos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return baos.toByteArray();
+        } else {
+            return null;
+        }
     }
 
 }
