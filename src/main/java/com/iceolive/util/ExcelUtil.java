@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iceolive.util.annotation.ExcelColumn;
 import com.iceolive.util.model.ImportResult;
 import com.iceolive.util.model.ValidateResult;
+import com.monitorjbl.xlsx.StreamingReader;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersionDetector;
@@ -478,82 +479,79 @@ public class ExcelUtil {
 
         List<Map<String, String>> list = new ArrayList<>();
         FileInputStream stream;
-        byte[] bytes = null;
+
         try {
             stream = new FileInputStream(filepath);
-            int len = stream.available();
-            bytes = new byte[len];
-            stream.read(bytes);
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        Workbook workbook = null;
-        try {
-            workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes));
-        } catch (Exception e1) {
-            try {
-                workbook = new HSSFWorkbook(new ByteArrayInputStream(bytes));
-            } catch (Exception e2) {
-                throw new RuntimeException(e2);
-            }
-        }
+        Workbook workbook = StreamingReader.builder()
+                .rowCacheSize(100)  //缓存到内存中的行数，默认是10
+                .bufferSize(4096)  //读取资源时，缓存到内存的字节大小，默认是1024
+                .open(stream);  //打开资源，必须，可以是InputStream或者是File，注意：只能打开XLSX格式的文件
         Sheet sheet = workbook.getSheetAt(0);
-        int startRow = 0;
-        Row headRow = sheet.getRow(0);
+
         Map<Integer, String> headMap = new HashMap<>();
-        for (int c = 0; c < headRow.getLastCellNum(); c++) {
-            Cell cell = headRow.getCell(c);
-            if (null != cell) {
-                if (cell.getStringCellValue().length() > 0) {
-                    headMap.put(c, cell.getStringCellValue());
-                }
-            }
-        }
-        for (int r = startRow + 1; r <= sheet.getLastRowNum(); r++) {
-            Row row = sheet.getRow(r);
-            if (null != row) {
-                Map<String, String> obj = new HashMap<>();
-                for (Integer i : headMap.keySet()) {
-                    Cell cell = row.getCell(i);
-                    //是否日期单元格
-                    String dateFormat = "yyyy-MM-dd HH:mm:ss";
+        for (Row row : sheet) {
+            if (row.getRowNum() == 0) {
+                for (int c = 0; c < row.getLastCellNum(); c++) {
+                    Cell cell = row.getCell(c);
                     if (null != cell) {
-                        String str = null;
-                        CellType cellType = cell.getCellTypeEnum();
-                        //支持公式单元格
-                        if (cellType == CellType.FORMULA) {
-                            cellType = cell.getCachedFormulaResultTypeEnum();
+                        if (cell.getStringCellValue().length() > 0) {
+                            headMap.put(c, cell.getStringCellValue());
                         }
-                        switch (cellType) {
-                            case NUMERIC:
-                                if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                                    str = StringUtil.format(cell.getDateCellValue(), dateFormat);
-                                } else {
-                                    BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
-                                    str = bd.stripTrailingZeros().toPlainString();
-                                }
-                                break;
-                            case BOOLEAN:
-                                str = String.valueOf(cell.getBooleanCellValue());
-                                break;
-                            case STRING:
-                            default:
-                                str = cell.getStringCellValue();
-                                break;
-                        }
-                        obj.put(headMap.get(i), str);
                     }
                 }
-                list.add(obj);
+            } else {
+                if (null != row) {
+                    Map<String, String> obj = new HashMap<>();
+                    for (Integer i : headMap.keySet()) {
+                        Cell cell = row.getCell(i);
+                        //是否日期单元格
+                        String dateFormat = "yyyy-MM-dd HH:mm:ss";
+                        if (null != cell) {
+                            String str = null;
+                            CellType cellType = cell.getCellTypeEnum();
+                            //支持公式单元格
+                            if (cellType == CellType.FORMULA) {
+                                cellType = cell.getCachedFormulaResultTypeEnum();
+                            }
+                            switch (cellType) {
+                                case NUMERIC:
+                                    if (HSSFDateUtil.isCellDateFormatted(cell)) {
+                                        str = StringUtil.format(cell.getDateCellValue(), dateFormat);
+                                    } else {
+                                        BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
+                                        str = bd.stripTrailingZeros().toPlainString();
+                                    }
+                                    break;
+                                case BOOLEAN:
+                                    str = String.valueOf(cell.getBooleanCellValue());
+                                    break;
+                                case ERROR:
+                                    str = null;
+                                    break;
+                                case STRING:
+                                default:
+                                    str = cell.getStringCellValue();
+                                    break;
+                            }
+                            obj.put(headMap.get(i), str);
+                        }
+                    }
+                    list.add(obj);
 
+                }
             }
-
         }
+
         return list;
     }
 
     /**
      * 生成导出excel模板
+     *
      * @param clazz
      * @param <T>
      * @return
