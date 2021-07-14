@@ -22,6 +22,7 @@ import org.apache.poi.xssf.usermodel.*;
 import javax.validation.ConstraintViolation;
 import javax.validation.Valid;
 import javax.validation.Validation;
+import javax.validation.Validator;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -36,17 +37,33 @@ import java.util.function.Function;
 @SuppressWarnings("unchecked")
 public class ExcelUtil {
 
+    private static Validator validator = null;
+
+    private static Validator getValidatorInstance() {
+        if (validator == null) {
+            createValidatorInstance();
+        }
+        return validator;
+    }
+    private static synchronized Validator createValidatorInstance() {
+        if (validator == null) {
+            validator = Validation.buildDefaultValidatorFactory()
+                    .getValidator();
+        }
+        return validator;
+    }
+
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant) {
-        return importExcel(filepath, clazz, 0, faultTolerant, null, null);
+        return importExcel(filepath, clazz, faultTolerant, 0, null, null);
 
     }
 
     public static <T> ImportResult importExcel(
-            String filepath, Class<T> clazz, int startRow,
-            boolean faultTolerant) {
-        return importExcel(filepath, clazz, startRow, faultTolerant, null, null);
+            String filepath, Class<T> clazz,
+            boolean faultTolerant, int startRow) {
+        return importExcel(filepath, clazz, faultTolerant, startRow, null, null);
 
     }
 
@@ -54,15 +71,15 @@ public class ExcelUtil {
             String filepath, Class<T> clazz,
             boolean faultTolerant,
             Function<T, Boolean> importFunc) {
-        return importExcel(filepath, clazz, 0, faultTolerant, null, importFunc);
+        return importExcel(filepath, clazz, faultTolerant, 0, null, importFunc);
 
     }
 
     public static <T> ImportResult importExcel(
-            String filepath, Class<T> clazz, int startRow,
-            boolean faultTolerant,
+            String filepath, Class<T> clazz,
+            boolean faultTolerant, int startRow,
             Function<T, Boolean> importFunc) {
-        return importExcel(filepath, clazz, startRow, faultTolerant, null, importFunc);
+        return importExcel(filepath, clazz, faultTolerant, startRow, null, importFunc);
     }
 
 
@@ -71,7 +88,7 @@ public class ExcelUtil {
             boolean faultTolerant,
             Function<T, List<ValidateResult>> customValidateFunc,
             Function<T, Boolean> importFunc) {
-        return importExcel(filepath, clazz, 0, faultTolerant, customValidateFunc, importFunc);
+        return importExcel(filepath, clazz, faultTolerant, 0, customValidateFunc, importFunc);
     }
 
 
@@ -89,180 +106,189 @@ public class ExcelUtil {
      */
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
-            int startRow,
             boolean faultTolerant,
+            int startRow,
             Function<T, List<ValidateResult>> customValidateFunc,
             Function<T, Boolean> importFunc) {
-        FileInputStream stream;
-        byte[] bytes = null;
+        FileInputStream inputStream;
         try {
-            stream = new FileInputStream(filepath);
-            int len = stream.available();
-            bytes = new byte[len];
-            stream.read(bytes);
+            inputStream = new FileInputStream(filepath);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return importExcel(bytes, clazz, startRow, faultTolerant, customValidateFunc, importFunc);
+        return importExcel(inputStream, clazz, faultTolerant, startRow, customValidateFunc, importFunc);
     }
 
 
     public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz,
+            InputStream inputStream, Class<T> clazz,
             boolean faultTolerant) {
-        return importExcel(bytes, clazz, 0, faultTolerant, null, null);
+        return importExcel(inputStream, clazz, faultTolerant, 0, null, null);
     }
 
     public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz, int startRow,
-            boolean faultTolerant) {
-        return importExcel(bytes, clazz, startRow, faultTolerant, null, null);
+            InputStream inputStream, Class<T> clazz,
+            boolean faultTolerant, int startRow) {
+        return importExcel(inputStream, clazz, faultTolerant, startRow, null, null);
     }
 
     public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz,
+            InputStream inputStream, Class<T> clazz,
             boolean faultTolerant,
             Function<T, Boolean> importFunc) {
-        return importExcel(bytes, clazz, 0, faultTolerant, null, importFunc);
+        return importExcel(inputStream, clazz, faultTolerant, 0, null, importFunc);
     }
 
 
     public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz, int startRow,
-            boolean faultTolerant,
+            InputStream inputStream, Class<T> clazz,
+            boolean faultTolerant, int startRow,
             Function<T, Boolean> importFunc) {
-        return importExcel(bytes, clazz, startRow, faultTolerant, null, importFunc);
+        return importExcel(inputStream, clazz, faultTolerant, startRow, null, importFunc);
     }
 
     public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz,
+            InputStream inputStream, Class<T> clazz,
             boolean faultTolerant,
             Function<T, List<ValidateResult>> customValidateFunc,
             Function<T, Boolean> importFunc) {
-        return importExcel(bytes, clazz, 0, faultTolerant, customValidateFunc, importFunc);
+        return importExcel(inputStream, clazz, faultTolerant, 0, customValidateFunc, importFunc);
     }
 
     /**
      * 导入excel
      *
-     * @param bytes              excel文件的字节数组
+     * @param inputStream        excel文件的字节数组
      * @param clazz              中间类类型
-     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @param <T>                中间类
      * @return 返回导入结果
      */
     public static <T> ImportResult<T> importExcel(
-            byte[] bytes, Class<T> clazz,
-            int startRow,
+            InputStream inputStream, Class<T> clazz,
             boolean faultTolerant,
+            int startRow,
             Function<T, List<ValidateResult>> customValidateFunc,
             Function<T, Boolean> importFunc) {
         ImportResult<T> result = new ImportResult<T>();
         result.setErrors(new ArrayList<>());
         Workbook workbook = null;
         try {
-            workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes));
+            workbook = StreamingReader.builder()
+                    //缓存到内存中的行数，默认是10
+                    .rowCacheSize(100)
+                    //读取资源时，缓存到内存的字节大小，默认是1024
+                    .bufferSize(4096)
+                    //打开资源，必须，可以是InputStream或者是File，注意：只能打开XLSX格式的文件
+                    .open(inputStream);
         } catch (Exception e1) {
             try {
-                workbook = new HSSFWorkbook(new ByteArrayInputStream(bytes));
+                workbook = new HSSFWorkbook(inputStream);
             } catch (Exception e2) {
                 throw new RuntimeException(e2);
             }
         }
         Sheet sheet = workbook.getSheetAt(0);
         //列序号和字段的map
-        Map<Integer, List<Field>> headMap = getHeadMap(sheet, clazz, startRow);
-        //设置总记录数
-        result.setTotalCount(sheet.getLastRowNum() - startRow);
+        Map<Integer, List<Field>> headMap = null;
         Map<Integer, T> list = new LinkedHashMap<>();
-        for (int r = startRow + 1; r <= sheet.getLastRowNum(); r++) {
-            Row row = sheet.getRow(r);
-            if (null != row) {
-                T obj = null;
-                try {
-                    obj = clazz.newInstance();
-                } catch (IllegalAccessException | InstantiationException e) {
-                    throw new RuntimeException(e);
-                }
-                boolean validate = true;
-                for (Integer c : headMap.keySet()) {
-                    Cell cell = row.getCell(c);
-                    List<Field> fields = headMap.get(c);
-                    //是否日期单元格
-                    boolean isDateCell = false;
-                    String dateFormat = "yyyy-MM-dd HH:mm:ss";
-                    if (null != cell) {
-                        try {
-                            String str = null;
-                            CellType cellType = cell.getCellTypeEnum();
-                            //支持公式单元格
-                            if (cellType == CellType.FORMULA) {
-                                cellType = cell.getCachedFormulaResultTypeEnum();
-                            }
-                            switch (cellType) {
-                                case NUMERIC:
-                                    if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                                        isDateCell = true;
-                                        str = StringUtil.format(cell.getDateCellValue(), dateFormat);
-                                    } else {
-                                        BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
-                                        str = bd.stripTrailingZeros().toPlainString();
-                                    }
-                                    break;
-                                case BOOLEAN:
-                                    str = String.valueOf(cell.getBooleanCellValue());
-                                    break;
-                                case ERROR:
-                                    throw new RuntimeException("单元格为错误值");
-                                case STRING:
-                                default:
-                                    str = cell.getStringCellValue();
-                                    break;
-                            }
+        int totalCount = 0;
+        for (Row row : sheet) {
+            if (row.getRowNum() < startRow) {
+                //小于标题行的抛弃
+            } else if (row.getRowNum() == startRow) {
+                headMap = getHeadMap(clazz, row);
 
-                            for (Field field : fields) {
-                                Object value = null;
-                                if (isDateCell || field.getType().isAssignableFrom(Date.class) || field.getType().isAssignableFrom(LocalDateTime.class) || field.getType().isAssignableFrom(LocalDate.class)) {
-                                    //特殊处理日期格式
-                                    if (!StringUtil.isBlank(str)) {
-                                        value = StringUtil.parse(str, dateFormat, field.getType());
-                                    }
-                                } else if (field.getType().isAssignableFrom(boolean.class) || field.getType().isAssignableFrom(Boolean.class)) {
-                                    ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
-                                    value = StringUtil.parseBoolean(str, excelColumn.trueString(), excelColumn.falseString(), field.getType());
-                                } else {
-                                    value = StringUtil.parse(str, field.getType());
+            } else {
+                totalCount++;
+                if (null != row) {
+                    T obj = null;
+                    try {
+                        obj = clazz.newInstance();
+                    } catch (IllegalAccessException | InstantiationException e) {
+                        throw new RuntimeException(e);
+                    }
+                    boolean validate = true;
+                    for (Integer c : headMap.keySet()) {
+                        Cell cell = row.getCell(c);
+                        List<Field> fields = headMap.get(c);
+                        //是否日期单元格
+                        boolean isDateCell = false;
+                        String dateFormat = "yyyy-MM-dd HH:mm:ss";
+                        if (null != cell) {
+                            try {
+                                String str = null;
+                                CellType cellType = cell.getCellTypeEnum();
+                                //支持公式单元格
+                                if (cellType == CellType.FORMULA) {
+                                    cellType = cell.getCachedFormulaResultTypeEnum();
+                                }
+                                switch (cellType) {
+                                    case NUMERIC:
+                                        if (HSSFDateUtil.isCellDateFormatted(cell)) {
+                                            isDateCell = true;
+                                            str = StringUtil.format(cell.getDateCellValue(), dateFormat);
+                                        } else {
+                                            BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
+                                            str = bd.stripTrailingZeros().toPlainString();
+                                        }
+                                        break;
+                                    case BOOLEAN:
+                                        str = String.valueOf(cell.getBooleanCellValue());
+                                        break;
+                                    case ERROR:
+                                        throw new RuntimeException("单元格为错误值");
+                                    case STRING:
+                                    default:
+                                        str = cell.getStringCellValue();
+                                        break;
                                 }
 
-                                field.setAccessible(true);
-                                field.set(obj, value);
+                                for (Field field : fields) {
+                                    Object value = null;
+                                    if (isDateCell || field.getType().isAssignableFrom(Date.class) || field.getType().isAssignableFrom(LocalDateTime.class) || field.getType().isAssignableFrom(LocalDate.class)) {
+                                        //特殊处理日期格式
+                                        if (!StringUtil.isBlank(str)) {
+                                            value = StringUtil.parse(str, dateFormat, field.getType());
+                                        }
+                                    } else if (field.getType().isAssignableFrom(boolean.class) || field.getType().isAssignableFrom(Boolean.class)) {
+                                        ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
+                                        value = StringUtil.parseBoolean(str, excelColumn.trueString(), excelColumn.falseString(), field.getType());
+                                    } else {
+                                        value = StringUtil.parse(str, field.getType());
+                                    }
+
+                                    field.setAccessible(true);
+                                    field.set(obj, value);
+                                }
+                            } catch (Exception e) {
+                                validate = false;
+                                ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                                errorMessage.setRow(row.getRowNum());
+                                errorMessage.setCell(new CellAddress(cell.getRowIndex(), cell.getColumnIndex()).formatAsString());
+                                errorMessage.setMessage("类型转换错误");
+                                result.getErrors().add(errorMessage);
                             }
-                        } catch (Exception e) {
-                            validate = false;
-                            ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
-                            errorMessage.setRow(row.getRowNum());
-                            errorMessage.setCell(cell.getAddress().formatAsString());
-                            errorMessage.setMessage("类型转换错误");
-                            result.getErrors().add(errorMessage);
                         }
                     }
-                }
-                List<ValidateResult> validateResults = validate(obj);
-                validate = isValidate(result, headMap, row, validate, validateResults, clazz);
+                    List<ValidateResult> validateResults = validate(obj);
+                    validate = isValidate(result, headMap, row, validate, validateResults, clazz);
 
-                if (customValidateFunc != null) {
-                    List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
-                    validate = isValidate(result, headMap, row, validate, customValidateResults, clazz);
-                }
-                if (validate) {
-                    list.put(row.getRowNum(), obj);
+                    if (customValidateFunc != null) {
+                        List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
+                        validate = isValidate(result, headMap, row, validate, customValidateResults, clazz);
+                    }
+                    if (validate) {
+                        list.put(row.getRowNum(), obj);
+                    }
                 }
             }
-
         }
+        //设置总记录数
+        result.setTotalCount(totalCount);
         if (list.size() > 0) {
             if (faultTolerant || result.getErrors().size() == 0) {
                 //如果容错模式或是验证全部通过
@@ -309,52 +335,47 @@ public class ExcelUtil {
     /**
      * 获取列序号和字段的对应关系
      *
-     * @param sheet
      * @param clazz
-     * @param rowNum 标题行号
+     * @param row   标题行
      * @param <T>
      * @return
      */
-    private static <T> Map<Integer, List<Field>> getHeadMap(Sheet sheet, Class<T> clazz, int rowNum) {
+    private static <T> Map<Integer, List<Field>> getHeadMap(Class<T> clazz, Row row) {
         //列序号和字段的map
         Map<Integer, List<Field>> headMap = new HashMap<>();
-        //获取字段和列序号的对应关系
-        if (sheet.getLastRowNum() > rowNum) {
-            Row row = sheet.getRow(rowNum);
-            for (int c = 0; c < row.getLastCellNum(); c++) {
-                Cell cell = row.getCell(c);
-                if (null != cell) {
-                    String title = cell.getStringCellValue();
-                    for (Field field : clazz.getDeclaredFields()) {
-                        ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
-                        if (excelColumn != null) {
-                            if (StringUtil.isNotEmpty(excelColumn.value())) {
-                                if (excelColumn.value().equals(title)) {
-                                    if (headMap.containsKey(c)) {
-                                        headMap.get(c).add(field);
-                                    } else {
-                                        List<Field> fieldList = new ArrayList<>();
-                                        fieldList.add(field);
-                                        headMap.put(c, fieldList);
-                                    }
-                                }
-                            } else {
-                                //如果ExcelColumn不指定名称，则使用字段名匹配
-                                if (field.getName().equals(title)) {
-                                    if (headMap.containsKey(c)) {
-                                        headMap.get(c).add(field);
-                                    } else {
-                                        List<Field> fieldList = new ArrayList<>();
-                                        fieldList.add(field);
-                                        headMap.put(c, fieldList);
-                                    }
+        for (int c = 0; c < row.getLastCellNum(); c++) {
+            Cell cell = row.getCell(c);
+            if (null != cell) {
+                String title = cell.getStringCellValue();
+                for (Field field : clazz.getDeclaredFields()) {
+                    ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
+                    if (excelColumn != null) {
+                        if (StringUtil.isNotEmpty(excelColumn.value())) {
+                            if (excelColumn.value().equals(title)) {
+                                if (headMap.containsKey(c)) {
+                                    headMap.get(c).add(field);
+                                } else {
+                                    List<Field> fieldList = new ArrayList<>();
+                                    fieldList.add(field);
+                                    headMap.put(c, fieldList);
                                 }
                             }
-
+                        } else {
+                            //如果ExcelColumn不指定名称，则使用字段名匹配
+                            if (field.getName().equals(title)) {
+                                if (headMap.containsKey(c)) {
+                                    headMap.get(c).add(field);
+                                } else {
+                                    List<Field> fieldList = new ArrayList<>();
+                                    fieldList.add(field);
+                                    headMap.put(c, fieldList);
+                                }
+                            }
                         }
-                    }
 
+                    }
                 }
+
             }
         }
         return headMap;
@@ -426,8 +447,7 @@ public class ExcelUtil {
      */
     public static List<ValidateResult> validate(@Valid Object obj) {
         List<ValidateResult> result = new ArrayList<>();
-        Set<ConstraintViolation<@Valid Object>> validateSet = Validation.buildDefaultValidatorFactory()
-                .getValidator()
+        Set<ConstraintViolation<@Valid Object>> validateSet = getValidatorInstance()
                 .validate(obj, new Class[0]);
         if (!CollectionUtils.isEmpty(validateSet)) {
             validateSet.stream().forEach((v) -> {
@@ -478,18 +498,25 @@ public class ExcelUtil {
     public static List<Map<String, String>> excel2List(String filepath) {
 
         List<Map<String, String>> list = new ArrayList<>();
-        FileInputStream stream;
-
+        FileInputStream inputStream = null;
+        Workbook workbook = null;
         try {
-            stream = new FileInputStream(filepath);
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            inputStream = new FileInputStream(filepath);
+            workbook = StreamingReader.builder()
+                    //缓存到内存中的行数，默认是10
+                    .rowCacheSize(100)
+                    //读取资源时，缓存到内存的字节大小，默认是1024
+                    .bufferSize(4096)
+                    //打开资源，必须，可以是InputStream或者是File，注意：只能打开XLSX格式的文件
+                    .open(inputStream);
+        } catch (Exception e1) {
+            try {
+                workbook = new HSSFWorkbook(inputStream);
+            } catch (Exception e2) {
+                throw new RuntimeException(e2);
+            }
         }
-        Workbook workbook = StreamingReader.builder()
-                .rowCacheSize(100)  //缓存到内存中的行数，默认是10
-                .bufferSize(4096)  //读取资源时，缓存到内存的字节大小，默认是1024
-                .open(stream);  //打开资源，必须，可以是InputStream或者是File，注意：只能打开XLSX格式的文件
+
         Sheet sheet = workbook.getSheetAt(0);
 
         Map<Integer, String> headMap = new HashMap<>();
