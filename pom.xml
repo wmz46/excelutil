@@ -26,9 +26,9 @@
 
     <scm>
         <tag>master</tag>
-        <url>https://github.com/wmz46/stringutil</url>
-        <connection>scm:git:https://github.com/wmz46/stringutil.git</connection>
-        <developerConnection>scm:git:https://github.com/wmz46/stringutil.git</developerConnection>
+        <url>https://github.com/wmz46/excelutil</url>
+        <connection>scm:git:https://github.com/wmz46/excelutil.git</connection>
+        <developerConnection>scm:git:https://github.com/wmz46/excelutil.git</developerConnection>
     </scm>
     <properties>
         <poi.version>4.1.2</poi.version>
@@ -186,18 +186,18 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.owasp</groupId>
-                <artifactId>dependency-check-maven</artifactId>
-                <version>7.0.0</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
+<!--            <plugin>-->
+<!--                <groupId>org.owasp</groupId>-->
+<!--                <artifactId>dependency-check-maven</artifactId>-->
+<!--                <version>7.0.0</version>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <goals>-->
+<!--                            <goal>check</goal>-->
+<!--                        </goals>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--            </plugin>-->
         </plugins>
     </build>
 
