@@ -9,8 +9,11 @@ import org.junit.Test;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import java.awt.image.BufferedImage;
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 public class Tests {
     @Data
@@ -30,6 +33,9 @@ public class Tests {
         @JsonSerialize(using = LocalDateTimeSerializer.class)//如果使用json-schema验证，必须添加
         @JsonFormat(pattern = "yyyy-MM-dd")//如果使用json-schema验证，必须添加
         private LocalDateTime birth1;
+
+        @ExcelColumn("图片")
+        private BufferedImage image;
     }
     @Test
     public void test1(){
@@ -39,5 +45,11 @@ public class Tests {
                 true//是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
         );
         System.out.println(importResult);
+    }
+    @Test
+    public void test2(){
+        String filepath = System.getProperty("user.dir")+ "//testdata//test1.xlsx";
+        List<Map<String, String>> list = ExcelUtil.excel2List(filepath);
+        System.out.println(list);
     }
 }

@@ -4,9 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iceolive.util.annotation.ExcelColumn;
+import com.iceolive.util.model.CellImages;
+import com.iceolive.util.model.CellImagesRels;
 import com.iceolive.util.model.ImportResult;
 import com.iceolive.util.model.ValidateResult;
+import com.iceolive.xpathmapper.XPathMapper;
 import com.monitorjbl.xlsx.StreamingReader;
+import com.monitorjbl.xlsx.impl.StreamingWorkbook;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersionDetector;
@@ -15,14 +19,19 @@ import lombok.var;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.apache.poi.openxml4j.opc.PackagePart;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.xssf.usermodel.*;
+import org.apache.xmlbeans.XmlException;
+import org.apache.xmlbeans.XmlObject;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.Valid;
 import javax.validation.Validation;
 import javax.validation.Validator;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -30,13 +39,15 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author wangmianzhe
  */
 @SuppressWarnings("unchecked")
 public class ExcelUtil {
-
+    private static Pattern dispimagPattern = Pattern.compile(".*DISPIMG\\(\"(ID_[\\dA-F]{32})\".*");
     private static Validator validator = null;
 
     private static Validator getValidatorInstance() {
@@ -45,6 +56,7 @@ public class ExcelUtil {
         }
         return validator;
     }
+
     private static synchronized Validator createValidatorInstance() {
         if (validator == null) {
             validator = Validation.buildDefaultValidatorFactory()
@@ -177,13 +189,18 @@ public class ExcelUtil {
         result.setErrors(new ArrayList<>());
         Workbook workbook = null;
         try {
-            workbook = StreamingReader.builder()
-                    //缓存到内存中的行数，默认是10
-                    .rowCacheSize(100)
-                    //读取资源时，缓存到内存的字节大小，默认是1024
-                    .bufferSize(4096)
-                    //打开资源，必须，可以是InputStream或者是File，注意：只能打开XLSX格式的文件
-                    .open(inputStream);
+            if (hasCellImageField(clazz)) {
+                //如果有图片字段，则不使用StreamingWorkbook
+                workbook = new XSSFWorkbook(inputStream);
+            } else {
+                workbook = StreamingReader.builder()
+                        //缓存到内存中的行数，默认是10
+                        .rowCacheSize(100)
+                        //读取资源时，缓存到内存的字节大小，默认是1024
+                        .bufferSize(4096)
+                        //打开资源，必须，可以是InputStream或者是File，注意：只能打开XLSX格式的文件
+                        .open(inputStream);
+            }
         } catch (Exception e1) {
             try {
                 workbook = new HSSFWorkbook(inputStream);
@@ -257,6 +274,10 @@ public class ExcelUtil {
                                     } else if (field.getType().isAssignableFrom(boolean.class) || field.getType().isAssignableFrom(Boolean.class)) {
                                         ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
                                         value = StringUtil.parseBoolean(str, excelColumn.trueString(), excelColumn.falseString(), field.getType());
+                                    } else if (field.getType().isArray() && field.getType().getComponentType().equals(byte.class)) {
+                                        value = getCellImageBytes((XSSFWorkbook) workbook, cell);
+                                    } else if (field.getType().isAssignableFrom(BufferedImage.class)) {
+                                        value = ImageUtil.Bytes2Image(getCellImageBytes((XSSFWorkbook) workbook, cell));
                                     } else {
                                         value = StringUtil.parse(str, field.getType());
                                     }
@@ -495,6 +516,12 @@ public class ExcelUtil {
         return result;
     }
 
+    /**
+     * 简单的excel转list
+     *
+     * @param filepath
+     * @return
+     */
     public static List<Map<String, String>> excel2List(String filepath) {
 
         List<Map<String, String>> list = new ArrayList<>();
@@ -609,5 +636,72 @@ public class ExcelUtil {
             return null;
         }
     }
+
+    public static byte[] getCellImageBytes(XSSFWorkbook workbook, Cell cell) {
+        if (cell.getCellType() == CellType.FORMULA && cell.getCellFormula().contains("DISPIMG")) {
+            Matcher matcher = dispimagPattern.matcher(cell.getCellFormula());
+            if (!matcher.find()) {
+                throw new RuntimeException("找不到ID");
+            }
+            String id = matcher.group(1);
+
+            try {
+                PackagePart cellimagesPart = workbook.getPackage().getParts().stream().filter(m -> m.getPartName().getName().equals("/xl/cellimages.xml")).findFirst().orElse(null);
+                if (cellimagesPart == null) {
+                    throw new RuntimeException("找不到图片");
+                }
+                XmlObject xmlObject = XmlObject.Factory.parse(cellimagesPart.getInputStream());
+                CellImages cellImages = XPathMapper.parse(xmlObject.xmlText(), CellImages.class);
+                PackagePart cellimagesRelsPart = workbook.getPackage().getParts().stream().filter(m -> m.getPartName().getName().equals("/xl/_rels/cellimages.xml.rels")).findFirst().orElse(null);
+                if (cellimagesRelsPart == null) {
+                    throw new RuntimeException("找不到图片");
+                }
+                XmlObject xmlObject2 = XmlObject.Factory.parse(cellimagesRelsPart.getInputStream());
+                CellImagesRels cellImagesRels = XPathMapper.parse(xmlObject2.xmlText(), CellImagesRels.class);
+                List<? extends PictureData> allPictures = workbook.getAllPictures();
+                String rId = cellImages.getCellImageList().stream().filter(m -> m.getId().equals(id)).map(m -> m.getRId()).findFirst().orElse(null);
+                if (rId == null) {
+                    throw new RuntimeException("找不到图片");
+                }
+                String target = cellImagesRels.getCellImageRelsList().stream().filter(m -> m.getRId().equals(rId)).map(m -> m.getTarget()).findFirst().orElse(null);
+                if (target == null) {
+                    throw new RuntimeException("找不到图片");
+                }
+                byte[] bytes = allPictures.stream().filter(m -> ((XSSFPictureData) m).getPackagePart().getPartName().getName().equals("/xl/" + target)).map(m -> ((XSSFPictureData) m).getData()).findFirst().orElse(null);
+                return bytes;
+
+            } catch (XmlException e) {
+                throw new RuntimeException(e);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (InvalidFormatException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            throw new RuntimeException("非单元格图片");
+        }
+    }
+
+    /**
+     * 是否有图片字段
+     *
+     * @param clazz
+     * @return
+     */
+    private static boolean hasCellImageField(Class<?> clazz) {
+        for (Field field : clazz.getDeclaredFields()) {
+            ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
+            if (excelColumn != null) {
+                if (field.getType().isAssignableFrom(BufferedImage.class)) {
+                    return true;
+                } else if (field.getType().isArray() && field.getType().getComponentType().equals(byte.class)) {
+                    return true;
+                }
+
+            }
+        }
+        return false;
+    }
+
 
 }
