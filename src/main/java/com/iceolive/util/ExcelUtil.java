@@ -4,19 +4,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iceolive.util.annotation.ExcelColumn;
+import com.iceolive.util.constants.ValidationConsts;
+import com.iceolive.util.enums.ColumnType;
 import com.iceolive.util.exception.ImageOutOfBoundsException;
-import com.iceolive.util.model.CellImages;
-import com.iceolive.util.model.CellImagesRels;
-import com.iceolive.util.model.ImportResult;
-import com.iceolive.util.model.ValidateResult;
+import com.iceolive.util.model.*;
 import com.iceolive.xpathmapper.XPathMapper;
 import com.monitorjbl.xlsx.StreamingReader;
-import com.monitorjbl.xlsx.impl.StreamingWorkbook;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersionDetector;
 import com.networknt.schema.ValidationMessage;
-import lombok.var;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -33,10 +30,12 @@ import javax.validation.Valid;
 import javax.validation.Validation;
 import javax.validation.Validator;
 import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -68,6 +67,15 @@ public class ExcelUtil {
         return validator;
     }
 
+    /**
+     * 导入excel
+     *
+     * @param filepath      excel文件路径
+     * @param clazz         中间类类型
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param <T>
+     * @return
+     */
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant) {
@@ -75,6 +83,16 @@ public class ExcelUtil {
 
     }
 
+    /**
+     * 导入excel
+     *
+     * @param filepath      excel文件路径
+     * @param clazz         中间类类型
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param <T>
+     * @return
+     */
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant, int startRow) {
@@ -82,6 +100,16 @@ public class ExcelUtil {
 
     }
 
+    /**
+     * 导入excel
+     *
+     * @param filepath      excel文件路径
+     * @param clazz         中间类类型
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param <T>
+     * @return
+     */
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant,
@@ -90,6 +118,17 @@ public class ExcelUtil {
 
     }
 
+    /**
+     * 导入excel
+     *
+     * @param filepath      excel文件路径
+     * @param clazz         中间类类型
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param <T>
+     * @return
+     */
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant, int startRow,
@@ -97,6 +136,17 @@ public class ExcelUtil {
         return importExcel(filepath, clazz, faultTolerant, startRow, null, importFunc);
     }
 
+    /**
+     * 导入excel
+     *
+     * @param filepath           excel文件路径
+     * @param clazz              中间类类型
+     * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
+     * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param <T>
+     * @return
+     */
 
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
@@ -134,19 +184,47 @@ public class ExcelUtil {
         return importExcel(inputStream, clazz, faultTolerant, startRow, customValidateFunc, importFunc);
     }
 
-
+    /**
+     * 导入excel
+     *
+     * @param inputStream   excel文件的字节数组
+     * @param clazz         中间类类型
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param <T>
+     * @return
+     */
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant) {
         return importExcel(inputStream, clazz, faultTolerant, 0, null, null);
     }
 
+    /**
+     * 导入excel
+     *
+     * @param inputStream   excel文件的字节数组
+     * @param clazz         中间类类型
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param <T>
+     * @return
+     */
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant, int startRow) {
         return importExcel(inputStream, clazz, faultTolerant, startRow, null, null);
     }
 
+    /**
+     * 导入excel
+     *
+     * @param inputStream   excel文件的字节数组
+     * @param clazz         中间类类型
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param <T>
+     * @return
+     */
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant,
@@ -154,6 +232,17 @@ public class ExcelUtil {
         return importExcel(inputStream, clazz, faultTolerant, 0, null, importFunc);
     }
 
+    /**
+     * 导入excel
+     *
+     * @param inputStream   excel文件的字节数组
+     * @param clazz         中间类类型
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param <T>
+     * @return
+     */
 
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
@@ -162,6 +251,17 @@ public class ExcelUtil {
         return importExcel(inputStream, clazz, faultTolerant, startRow, null, importFunc);
     }
 
+    /**
+     * 导入excel
+     *
+     * @param inputStream        excel文件的字节数组
+     * @param clazz              中间类类型
+     * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
+     * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param <T>
+     * @return
+     */
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant,
@@ -501,6 +601,45 @@ public class ExcelUtil {
         return validate;
     }
 
+    private static boolean isValidate(ImportResult result, Map<Integer, ColumnInfo> headMap, Row row, boolean validate, List<ValidateResult> validateResults, List<ColumnInfo> columnInfos) {
+        if (validateResults != null && !validateResults.isEmpty()) {
+            validate = false;
+            for (ValidateResult v : validateResults) {
+                //错误是否在单元格内
+                boolean errorInCell = false;
+                for (Map.Entry<Integer, ColumnInfo> m : headMap.entrySet()) {
+                    ColumnInfo columnInfo = m.getValue();
+                    if (columnInfo.getName().equals(v.getFieldName())) {
+                        ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                        errorMessage.setRow(row.getRowNum());
+                        errorMessage.setCell(new CellAddress(row.getRowNum(), m.getKey()).toString());
+                        errorMessage.setMessage(v.getMessage());
+                        result.getErrors().add(errorMessage);
+                        errorInCell = true;
+                        break;
+                    }
+                }
+                if (!errorInCell) {
+                    String fieldName = v.getFieldName();
+                    String columnName = fieldName;
+                    ColumnInfo columnInfo = columnInfos.stream().filter(m -> m.getName().equals(fieldName)).findFirst().orElse(null);
+                    if (columnInfo != null) {
+                        String title = columnInfo.getTitle();
+                        if (StringUtil.isNotEmpty(title)) {
+                            columnName = title;
+                        }
+                    }
+                    //如果错误不在单元格内，不
+                    ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                    errorMessage.setRow(row.getRowNum());
+                    errorMessage.setMessage(v.getMessage() + "\n请检查[" + columnName + "]列是否存在");
+                    result.getErrors().add(errorMessage);
+                }
+            }
+
+        }
+        return validate;
+    }
 
     /**
      * 根据注解验证对象
@@ -522,6 +661,66 @@ public class ExcelUtil {
             });
 
 
+        }
+        return result;
+    }
+
+    public static List<ValidateResult> validate(Map<String, Object> obj, List<ColumnInfo> columnInfos) {
+        List<ValidateResult> result = new ArrayList<>();
+        for (ColumnInfo columnInfo : columnInfos) {
+            String name = columnInfo.getName();
+            if (!CollectionUtils.isEmpty(columnInfo.getRules())) {
+                Object value = obj.get(name);
+                for (ColumnInfo.Rule rule : columnInfo.getRules()) {
+                    String code = rule.getCode();
+                    String msg = rule.getMessage();
+                    if (value != null) {
+                        String regex = null;
+                        if (code.startsWith("/") && code.endsWith("/")) {
+                            //正则
+                            regex = code.substring(1, code.length() - 2);
+                            if (StringUtil.isEmpty(msg)) {
+                                msg = "参数输入有误";
+                            }
+                        } else if (ValidationConsts.EMAIL.equals(code)) {
+                            regex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+                            if (StringUtil.isEmpty(msg)) {
+                                msg = "请输入正确的邮箱地址";
+                            }
+                        } else if (ValidationConsts.MOBILE.equals(code)) {
+                            regex = "^1[0-9]{10}$";
+                            if (StringUtil.isEmpty(msg)) {
+                                msg = "请输入正确的手机号";
+                            }
+                        } else if (ValidationConsts.REQUIRED.equals(code)) {
+                            regex = "^.+$";
+                            if (StringUtil.isEmpty(msg)) {
+                                msg = "参数不能为空";
+                            }
+                        }
+                        if (!StringUtil.isEmpty(regex)) {
+                            if (!Pattern.matches(regex, String.valueOf(value))) {
+                                result.add(new ValidateResult(name, msg));
+                            }
+                        } else if (ValidationConsts.IDCARD.equals(code)) {
+                            if (StringUtil.isEmpty(msg)) {
+                                msg = "请输入正确的身份证号";
+                            }
+                            if (!IdCardUtil.validate(String.valueOf(value))) {
+                                result.add(new ValidateResult(name, msg));
+                            }
+                        }
+                    } else {
+                        if (ValidationConsts.REQUIRED.equals(code)) {
+                            if (StringUtil.isEmpty(msg)) {
+                                msg = "参数不能为空";
+                            }
+                            result.add(new ValidateResult(name, msg));
+                        }
+                    }
+
+                }
+            }
         }
         return result;
     }
@@ -645,6 +844,7 @@ public class ExcelUtil {
         return list;
     }
 
+
     /**
      * 生成导出excel模板
      *
@@ -653,7 +853,7 @@ public class ExcelUtil {
      * @return
      */
     public static <T> byte[] createImportExcelTemplate(Class<T> clazz) {
-        var wb = new XSSFWorkbook();
+        XSSFWorkbook wb = new XSSFWorkbook();
         XSSFSheet sheet = wb.createSheet("Sheet1");
         int i = 0;
         XSSFRow row = sheet.createRow(0);
@@ -761,6 +961,387 @@ public class ExcelUtil {
             }
         }
         return false;
+    }
+
+    /**
+     * 导入excel
+     * @param filepath excel文件路径
+     * @param columnInfos 列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @return
+     */
+    public static ImportResult importExcel(
+            String filepath, List<ColumnInfo> columnInfos,
+            boolean faultTolerant) {
+        return importExcel(filepath, columnInfos, faultTolerant, 0, null, null);
+    }
+
+    /**
+     * 导入excel
+     * @param filepath  excel文件路径
+     * @param columnInfos  列信息
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @return
+     */
+    public static ImportResult importExcel(
+            String filepath, List<ColumnInfo> columnInfos,
+            boolean faultTolerant,
+            int startRow) {
+        return importExcel(filepath, columnInfos, faultTolerant, startRow, null, null);
+    }
+
+    /**
+     *  导入excel
+     * @param filepath excel文件路径
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @return
+     */
+
+    public static ImportResult importExcel(
+            String filepath, List<ColumnInfo> columnInfos,
+            boolean faultTolerant,
+            Function<Map<String, Object>, Boolean> importFunc) {
+        return importExcel(filepath, columnInfos, faultTolerant, 0, null, importFunc);
+
+    }
+
+    /**
+     * 导入excel
+     * @param filepath excel文件路径
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @return
+     */
+    public static ImportResult importExcel(
+            String filepath, List<ColumnInfo> columnInfos,
+            boolean faultTolerant, int startRow,
+            Function<Map<String, Object>, Boolean> importFunc) {
+        return importExcel(filepath, columnInfos, faultTolerant, startRow, null, importFunc);
+    }
+
+    /**
+     * 导入excel
+     * @param filepath excel文件路径
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
+     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @return
+     */
+
+    public static ImportResult importExcel(
+            String filepath, List<ColumnInfo> columnInfos,
+            boolean faultTolerant,
+            Function<Map<String, Object>, List<ValidateResult>> customValidateFunc,
+            Function<Map<String, Object>, Boolean> importFunc) {
+        return importExcel(filepath, columnInfos, faultTolerant, 0, customValidateFunc, importFunc);
+    }
+    /**
+     * 导入excel
+     * @param filepath excel文件路径
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
+     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @return
+     */
+    public static ImportResult importExcel(
+            String filepath, List<ColumnInfo> columnInfos,
+            boolean faultTolerant,
+            int startRow,
+            Function<Map<String, Object>, List<ValidateResult>> customValidateFunc,
+            Function<Map<String, Object>, Boolean> importFunc) {
+        FileInputStream inputStream;
+        try {
+            inputStream = new FileInputStream(filepath);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return importExcel(inputStream, columnInfos, faultTolerant, startRow, customValidateFunc, importFunc);
+    }
+
+    /**
+     * 导入excel
+     * @param inputStream  excel文件的字节数组
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @return
+     */
+    public static ImportResult importExcel(
+            InputStream inputStream, List<ColumnInfo> columnInfos,
+            boolean faultTolerant) {
+        return importExcel(inputStream, columnInfos, faultTolerant, 0, null, null);
+    }
+    /**
+     * 导入excel
+     * @param inputStream  excel文件的字节数组
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @return
+     */
+    public static ImportResult importExcel(
+            InputStream inputStream, List<ColumnInfo> columnInfos,
+            boolean faultTolerant,
+            int startRow) {
+        return importExcel(inputStream, columnInfos, faultTolerant, startRow, null, null);
+    }
+    /**
+     * 导入excel
+     * @param inputStream  excel文件的字节数组
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @return
+     */
+    public static ImportResult importExcel(
+            InputStream inputStream, List<ColumnInfo> columnInfos,
+            boolean faultTolerant,
+            Function<Map<String, Object>, Boolean> importFunc) {
+        return importExcel(inputStream, columnInfos, faultTolerant, 0, null, importFunc);
+
+    }
+    /**
+     * 导入excel
+     * @param inputStream  excel文件的字节数组
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @return
+     */
+    public static ImportResult importExcel(
+            InputStream inputStream, List<ColumnInfo> columnInfos,
+            boolean faultTolerant, int startRow,
+            Function<Map<String, Object>, Boolean> importFunc) {
+        return importExcel(inputStream, columnInfos, faultTolerant, startRow, null, importFunc);
+    }
+
+    /**
+     * 导入excel
+     * @param inputStream  excel文件的字节数组
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
+     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @return
+     */
+    public static ImportResult importExcel(
+            InputStream inputStream, List<ColumnInfo> columnInfos,
+            boolean faultTolerant,
+            Function<Map<String, Object>, List<ValidateResult>> customValidateFunc,
+            Function<Map<String, Object>, Boolean> importFunc) {
+        return importExcel(inputStream, columnInfos, faultTolerant, 0, customValidateFunc, importFunc);
+    }
+    /**
+     * 导入excel
+     * @param inputStream  excel文件的字节数组
+     * @param columnInfos  列信息
+     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
+     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @return
+     */
+    public static ImportResult importExcel(
+            InputStream inputStream, List<ColumnInfo> columnInfos,
+            boolean faultTolerant,
+            int startRow,
+            Function<Map<String, Object>, List<ValidateResult>> customValidateFunc,
+            Function<Map<String, Object>, Boolean> importFunc) {
+        ImportResult<Map<String, Object>> result = new ImportResult<>();
+        result.setErrors(new ArrayList<>());
+        Workbook workbook = null;
+        try {
+            if (columnInfos.stream().anyMatch(m -> m.getType() == ColumnType.IMAGE || m.getType() == ColumnType.IMAGES)) {
+                //如果有图片字段，则不使用StreamingWorkbook
+                workbook = new XSSFWorkbook(inputStream);
+            } else {
+                workbook = StreamingReader.builder()
+                        //缓存到内存中的行数，默认是10
+                        .rowCacheSize(100)
+                        //读取资源时，缓存到内存的字节大小，默认是1024
+                        .bufferSize(4096)
+                        //打开资源，必须，可以是InputStream或者是File，注意：只能打开XLSX格式的文件
+                        .open(inputStream);
+            }
+        } catch (Exception e1) {
+            try {
+                workbook = new HSSFWorkbook(inputStream);
+            } catch (Exception e2) {
+                throw new RuntimeException(e2);
+            }
+        }
+        Sheet sheet = workbook.getSheetAt(0);
+        //列序号和字段的map
+        Map<Integer, ColumnInfo> headMap = new HashMap<>();
+        Map<Integer, Map<String, Object>> list = new LinkedHashMap<>();
+        int totalCount = 0;
+        for (Row row : sheet) {
+            if (row.getRowNum() < startRow) {
+                //小于标题行的抛弃
+            } else if (row.getRowNum() == startRow) {
+                for (int c = 0; c < row.getLastCellNum(); c++) {
+                    Cell cell = row.getCell(c);
+                    if (null != cell) {
+                        String title = cell.getStringCellValue();
+                        ColumnInfo columnInfo = columnInfos.stream().filter(m -> m.getTitle().equals(title)).findFirst().orElse(null);
+                        if (columnInfo != null) {
+                            headMap.put(c, columnInfo);
+                        }
+                    }
+                }
+
+            } else {
+                totalCount++;
+                if (null != row) {
+                    Map<String, Object> obj = new HashMap<>();
+                    boolean validate = true;
+                    for (Integer c : headMap.keySet()) {
+                        Cell cell = row.getCell(c);
+                        ColumnInfo columnInfo = headMap.get(c);
+                        //是否日期单元格
+                        boolean isDateCell = false;
+                        String dateFormat = "yyyy-MM-dd HH:mm:ss";
+                        try {
+                            if (null != cell) {
+                                String str = null;
+                                CellType cellType = cell.getCellTypeEnum();
+                                //支持公式单元格
+                                if (cellType == CellType.FORMULA) {
+                                    cellType = cell.getCachedFormulaResultTypeEnum();
+                                }
+                                switch (cellType) {
+                                    case NUMERIC:
+                                        if (HSSFDateUtil.isCellDateFormatted(cell)) {
+                                            isDateCell = true;
+                                            str = StringUtil.format(cell.getDateCellValue(), dateFormat);
+                                        } else {
+                                            BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
+                                            str = bd.stripTrailingZeros().toPlainString();
+                                        }
+                                        break;
+                                    case BOOLEAN:
+                                        str = String.valueOf(cell.getBooleanCellValue());
+                                        break;
+                                    case ERROR:
+                                        throw new RuntimeException("单元格为错误值");
+                                    case STRING:
+                                    default:
+                                        str = cell.getStringCellValue();
+                                        break;
+                                }
+
+                                Object value = null;
+                                if (isDateCell || columnInfo.getType() == ColumnType.DATETIME) {
+                                    //特殊处理日期格式
+                                    if (!StringUtil.isBlank(str)) {
+                                        value = StringUtil.parse(str, dateFormat, Date.class);
+                                    }
+                                } else if (columnInfo.getType() == ColumnType.IMAGE) {
+                                    value = ImageUtil.Bytes2Image(getCellImageBytes((XSSFWorkbook) workbook, cell));
+                                } else if (columnInfo.getType() == ColumnType.LONG) {
+                                    value = StringUtil.parse(str, Long.class);
+                                } else if (columnInfo.getType() == ColumnType.DOUBLE) {
+                                    value = StringUtil.parse(str, Double.class);
+                                } else {
+                                    value = str;
+                                }
+                                obj.put(columnInfo.getName(), value);
+                            } else {
+                                //单元格为null，处理图片
+                                Object value = null;
+                                if (columnInfo.getType() == ColumnType.IMAGE) {
+                                    List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                    if (!CollectionUtils.isEmpty(floatImages)) {
+                                        value = ImageUtil.Bytes2Image(floatImages.get(0));
+                                    }
+                                } else if (columnInfo.getType() == ColumnType.IMAGES) {
+
+                                    List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                    value = new ArrayList<>();
+                                    for (byte[] floatImage : floatImages) {
+                                        ((List) value).add(ImageUtil.Bytes2Image(floatImage));
+                                    }
+
+                                }
+                                obj.put(columnInfo.getName(), value);
+                            }
+                        } catch (Exception e) {
+                            validate = false;
+                            ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                            errorMessage.setRow(row.getRowNum());
+                            errorMessage.setCell(new CellAddress(row.getRowNum(), c).formatAsString());
+                            if (e instanceof ImageOutOfBoundsException) {
+                                errorMessage.setMessage(e.getMessage());
+                            } else {
+                                errorMessage.setMessage("类型转换错误");
+
+                            }
+                            result.getErrors().add(errorMessage);
+                        }
+                    }
+                    List<ValidateResult> validateResults = validate(obj, columnInfos);
+                    validate = isValidate(result, headMap, row, validate, validateResults, columnInfos);
+
+                    if (customValidateFunc != null) {
+                        List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
+                        validate = isValidate(result, headMap, row, validate, customValidateResults, columnInfos);
+                    }
+                    if (validate) {
+                        list.put(row.getRowNum(), obj);
+                    }
+                }
+            }
+        }
+        //设置总记录数
+        result.setTotalCount(totalCount);
+        if (list.size() > 0) {
+            if (faultTolerant || result.getErrors().size() == 0) {
+                //如果容错模式或是验证全部通过
+                if (importFunc != null) {
+                    //如果有导入函数
+                    for (Map.Entry<Integer, Map<String, Object>> m : list.entrySet()) {
+                        try {
+                            if (Boolean.TRUE.equals(importFunc.apply(m.getValue()))) {
+                                result.getSuccesses().put(m.getKey(), m.getValue());
+                            } else {
+                                ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                                errorMessage.setRow(m.getKey());
+                                errorMessage.setMessage("未抛异常的错误");
+                                result.getErrors().add(errorMessage);
+                                //非容错模式，退出循环
+                                if (!faultTolerant) {
+
+                                    break;
+                                }
+                            }
+                        } catch (Exception e) {
+                            ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                            errorMessage.setRow(m.getKey());
+                            errorMessage.setMessage(e.getMessage());
+                            result.getErrors().add(errorMessage);
+                            //非容错模式，退出循环
+                            if (!faultTolerant) {
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    //没有导入函数
+                    result.setSuccesses(list);
+                }
+            }
+        }
+
+        return result;
+
     }
 
 
