@@ -36,6 +36,8 @@ public class Tests {
 
         @ExcelColumn("图片")
         private BufferedImage image;
+        @ExcelColumn("图片2")
+        private List<byte[]> image2;
     }
     @Test
     public void test1(){

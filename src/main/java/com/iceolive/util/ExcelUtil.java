@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iceolive.util.annotation.ExcelColumn;
+import com.iceolive.util.exception.ImageOutOfBoundsException;
 import com.iceolive.util.model.CellImages;
 import com.iceolive.util.model.CellImagesRels;
 import com.iceolive.util.model.ImportResult;
@@ -34,6 +35,8 @@ import javax.validation.Validator;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -235,8 +238,10 @@ public class ExcelUtil {
                         //是否日期单元格
                         boolean isDateCell = false;
                         String dateFormat = "yyyy-MM-dd HH:mm:ss";
-                        if (null != cell) {
-                            try {
+
+                        try {
+
+                            if (null != cell) {
                                 String str = null;
                                 CellType cellType = cell.getCellTypeEnum();
                                 //支持公式单元格
@@ -285,14 +290,51 @@ public class ExcelUtil {
                                     field.setAccessible(true);
                                     field.set(obj, value);
                                 }
-                            } catch (Exception e) {
-                                validate = false;
-                                ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
-                                errorMessage.setRow(row.getRowNum());
-                                errorMessage.setCell(new CellAddress(cell.getRowIndex(), cell.getColumnIndex()).formatAsString());
-                                errorMessage.setMessage("类型转换错误");
-                                result.getErrors().add(errorMessage);
+
+                            } else {
+                                //单元格为null，处理图片
+                                for (Field field : fields) {
+                                    Object value = null;
+                                    if (field.getType().isArray() && field.getType().getComponentType().equals(byte.class)) {
+                                        List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                        if (!CollectionUtils.isEmpty(floatImages)) {
+                                            value = floatImages.get(0);
+                                        }
+                                    } else if (field.getType().isAssignableFrom(BufferedImage.class)) {
+                                        List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                        if (!CollectionUtils.isEmpty(floatImages)) {
+                                            value = ImageUtil.Bytes2Image(floatImages.get(0));
+
+                                        }
+                                    } else if (field.getType().isAssignableFrom(List.class)) {
+                                        ParameterizedType genericType = (ParameterizedType) field.getGenericType();
+                                        if (genericType.getActualTypeArguments()[0] == BufferedImage.class) {
+                                            List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                            value = new ArrayList<>();
+                                            for (byte[] floatImage : floatImages) {
+                                                ((List) value).add(ImageUtil.Bytes2Image(floatImage));
+                                            }
+                                        } else if (genericType.getActualTypeArguments()[0] == byte[].class) {
+                                            List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                            value = floatImages;
+                                        }
+                                    }
+                                    field.setAccessible(true);
+                                    field.set(obj, value);
+                                }
                             }
+                        } catch (Exception e) {
+                            validate = false;
+                            ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                            errorMessage.setRow(row.getRowNum());
+                            errorMessage.setCell(new CellAddress(row.getRowNum(), c).formatAsString());
+                            if (e instanceof ImageOutOfBoundsException) {
+                                errorMessage.setMessage(e.getMessage());
+                            } else {
+                                errorMessage.setMessage("类型转换错误");
+
+                            }
+                            result.getErrors().add(errorMessage);
                         }
                     }
                     List<ValidateResult> validateResults = validate(obj);
@@ -635,6 +677,24 @@ public class ExcelUtil {
         } else {
             return null;
         }
+    }
+
+    public static List<byte[]> getFloatImagesBytes(Sheet sheet, Integer rowIndex, Integer columnIndex) {
+        List<byte[]> list = new ArrayList<>();
+        for (Shape shape : sheet.getDrawingPatriarch()) {
+            XSSFPicture picture = (XSSFPicture) shape;
+            XSSFClientAnchor anchor = picture.getClientAnchor();
+            if (anchor.getRow1() == rowIndex && anchor.getCol1() == columnIndex) {
+                if (anchor.getRow1() != anchor.getRow2()) {
+                    throw new ImageOutOfBoundsException();
+                } else if (anchor.getCol1() != anchor.getCol2()) {
+                    throw new ImageOutOfBoundsException();
+                } else {
+                    list.add(((XSSFPicture) shape).getPictureData().getData());
+                }
+            }
+        }
+        return list;
     }
 
     public static byte[] getCellImageBytes(XSSFWorkbook workbook, Cell cell) {

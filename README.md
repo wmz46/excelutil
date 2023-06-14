@@ -5,7 +5,7 @@
 <dependency>
   <groupId>com.iceolive</groupId>
   <artifactId>excelutil</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
 </dependency>
 ```
 ## 二、快速开始
@@ -29,9 +29,10 @@ public class TestModel {
     @JsonSerialize(using = LocalDateTimeSerializer.class)//如果使用json-schema验证，必须添加
     @JsonFormat(pattern = "yyyy-MM-dd")//如果使用json-schema验证，必须添加
     private LocalDateTime birth1;
-    // 单元格图片，类型为BufferedImage或byte[]
-    // 必须是单元格嵌入图片，且图片公式为 =DISPIMG("ID_XXXX",1)，其中XXXX为32位十六进制字符串
-    // 只支持xlsx的单元格图片
+    // 图片，有两种方式嵌入，一种是浮动图片置于单元格内（不能越界），一种是嵌入单元格    
+    // 单元格嵌入图片必须是图片公式为 =DISPIMG("ID_XXXX",1)，其中XXXX为32位十六进制字符串，只能有一张，类型只能是BufferedImage或byte[]
+    // 浮动图片可以多张也可以单张，单张类型为BufferedImage或byte[],多张类型为 List<BufferedImage> 或 List<byte[]>（不支持数组是因为）
+    // 只支持xlsx的单元格图片    
     @ExcelColumn("图片")
     private BufferedImage image;
 }
