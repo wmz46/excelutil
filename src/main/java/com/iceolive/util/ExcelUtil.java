@@ -21,6 +21,7 @@ import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.openxml4j.opc.PackagePart;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellAddress;
+import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.*;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlObject;
@@ -965,9 +966,10 @@ public class ExcelUtil {
 
     /**
      * 导入excel
-     * @param filepath excel文件路径
-     * @param columnInfos 列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     *
+     * @param filepath      excel文件路径
+     * @param columnInfos   列信息
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @return
      */
     public static ImportResult importExcel(
@@ -978,10 +980,11 @@ public class ExcelUtil {
 
     /**
      * 导入excel
-     * @param filepath  excel文件路径
-     * @param columnInfos  列信息
+     *
+     * @param filepath      excel文件路径
+     * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
      * @return
      */
     public static ImportResult importExcel(
@@ -992,11 +995,12 @@ public class ExcelUtil {
     }
 
     /**
-     *  导入excel
-     * @param filepath excel文件路径
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * 导入excel
+     *
+     * @param filepath      excel文件路径
+     * @param columnInfos   列信息
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
 
@@ -1010,11 +1014,12 @@ public class ExcelUtil {
 
     /**
      * 导入excel
-     * @param filepath excel文件路径
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
-     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     *
+     * @param filepath      excel文件路径
+     * @param columnInfos   列信息
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
     public static ImportResult importExcel(
@@ -1026,11 +1031,12 @@ public class ExcelUtil {
 
     /**
      * 导入excel
-     * @param filepath excel文件路径
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     *
+     * @param filepath           excel文件路径
+     * @param columnInfos        列信息
+     * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
-     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
 
@@ -1041,14 +1047,16 @@ public class ExcelUtil {
             Function<Map<String, Object>, Boolean> importFunc) {
         return importExcel(filepath, columnInfos, faultTolerant, 0, customValidateFunc, importFunc);
     }
+
     /**
      * 导入excel
-     * @param filepath excel文件路径
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     *
+     * @param filepath           excel文件路径
+     * @param columnInfos        列信息
+     * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
-     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
     public static ImportResult importExcel(
@@ -1068,9 +1076,10 @@ public class ExcelUtil {
 
     /**
      * 导入excel
-     * @param inputStream  excel文件的字节数组
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     *
+     * @param inputStream   excel文件的字节数组
+     * @param columnInfos   列信息
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @return
      */
     public static ImportResult importExcel(
@@ -1078,12 +1087,14 @@ public class ExcelUtil {
             boolean faultTolerant) {
         return importExcel(inputStream, columnInfos, faultTolerant, 0, null, null);
     }
+
     /**
      * 导入excel
-     * @param inputStream  excel文件的字节数组
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     *
+     * @param inputStream   excel文件的字节数组
+     * @param columnInfos   列信息
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
      * @return
      */
     public static ImportResult importExcel(
@@ -1092,12 +1103,14 @@ public class ExcelUtil {
             int startRow) {
         return importExcel(inputStream, columnInfos, faultTolerant, startRow, null, null);
     }
+
     /**
      * 导入excel
-     * @param inputStream  excel文件的字节数组
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     *
+     * @param inputStream   excel文件的字节数组
+     * @param columnInfos   列信息
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
     public static ImportResult importExcel(
@@ -1107,13 +1120,15 @@ public class ExcelUtil {
         return importExcel(inputStream, columnInfos, faultTolerant, 0, null, importFunc);
 
     }
+
     /**
      * 导入excel
-     * @param inputStream  excel文件的字节数组
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
-     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     *
+     * @param inputStream   excel文件的字节数组
+     * @param columnInfos   列信息
+     * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
     public static ImportResult importExcel(
@@ -1125,11 +1140,12 @@ public class ExcelUtil {
 
     /**
      * 导入excel
-     * @param inputStream  excel文件的字节数组
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     *
+     * @param inputStream        excel文件的字节数组
+     * @param columnInfos        列信息
+     * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
-     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
     public static ImportResult importExcel(
@@ -1139,14 +1155,16 @@ public class ExcelUtil {
             Function<Map<String, Object>, Boolean> importFunc) {
         return importExcel(inputStream, columnInfos, faultTolerant, 0, customValidateFunc, importFunc);
     }
+
     /**
      * 导入excel
-     * @param inputStream  excel文件的字节数组
-     * @param columnInfos  列信息
-     * @param faultTolerant  是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow  开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     *
+     * @param inputStream        excel文件的字节数组
+     * @param columnInfos        列信息
+     * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
+     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
-     * @param importFunc 一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
+     * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
     public static ImportResult importExcel(
@@ -1191,12 +1209,17 @@ public class ExcelUtil {
                     Cell cell = row.getCell(c);
                     if (null != cell) {
                         String title = cell.getStringCellValue();
-                        ColumnInfo columnInfo = columnInfos.stream().filter(m -> m.getTitle().equals(title)).findFirst().orElse(null);
+                        ColumnInfo columnInfo = columnInfos.stream().filter(m -> StringUtil.isNotEmpty(m.getTitle()) && m.getTitle().equals(title)).findFirst().orElse(null);
                         if (columnInfo != null) {
                             headMap.put(c, columnInfo);
                         }
                     }
                 }
+                columnInfos.stream().filter(m->StringUtil.isNotEmpty(m.getColString())).forEach(columnInfo ->
+                {
+                    int i = CellReference.convertColStringToIndex(columnInfo.getColString());
+                    headMap.put(i,columnInfo);
+                });
 
             } else {
                 totalCount++;
@@ -1245,7 +1268,7 @@ public class ExcelUtil {
                                         value = StringUtil.parse(str, dateFormat, Date.class);
                                     }
                                 } else if (columnInfo.getType() == ColumnType.IMAGE) {
-                                    value = ImageUtil.Bytes2Image(getCellImageBytes((XSSFWorkbook) workbook, cell));
+                                    value = getCellImageBytes((XSSFWorkbook) workbook, cell);
                                 } else if (columnInfo.getType() == ColumnType.LONG) {
                                     value = StringUtil.parse(str, Long.class);
                                 } else if (columnInfo.getType() == ColumnType.DOUBLE) {
@@ -1260,15 +1283,12 @@ public class ExcelUtil {
                                 if (columnInfo.getType() == ColumnType.IMAGE) {
                                     List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
                                     if (!CollectionUtils.isEmpty(floatImages)) {
-                                        value = ImageUtil.Bytes2Image(floatImages.get(0));
+                                        value =  floatImages.get(0);
                                     }
                                 } else if (columnInfo.getType() == ColumnType.IMAGES) {
 
                                     List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
-                                    value = new ArrayList<>();
-                                    for (byte[] floatImage : floatImages) {
-                                        ((List) value).add(ImageUtil.Bytes2Image(floatImage));
-                                    }
+                                    value = floatImages;
 
                                 }
                                 obj.put(columnInfo.getName(), value);

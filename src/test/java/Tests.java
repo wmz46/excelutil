@@ -62,38 +62,86 @@ public class Tests {
     public void test3() {
         String filepath = System.getProperty("user.dir") + "//testdata//test1.xlsx";
         List<ColumnInfo> columnInfos = new ArrayList<>();
-        ColumnInfo c1= new ColumnInfo("age","年龄",ColumnType.LONG);
+        ColumnInfo c1= new ColumnInfo("age","年龄",null,ColumnType.LONG);
         c1.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
                 add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
                 add(new ColumnInfo.Rule("/^(?:[1-9]|[1-9][0-9])$/","年龄必须是1到99"));
             }
         });
-        ColumnInfo c2= new ColumnInfo("name","姓名",ColumnType.STRING);
+        ColumnInfo c2= new ColumnInfo("name","姓名",null,ColumnType.STRING);
         c2.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
                 add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
             }
         });
-        ColumnInfo c3= new ColumnInfo("birth","birth",ColumnType.DATETIME);
+        ColumnInfo c3= new ColumnInfo("birth","birth",null,ColumnType.DATETIME);
         c3.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
                 add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
             }
         });
-        ColumnInfo c4= new ColumnInfo("agree","agree",ColumnType.STRING);
+        ColumnInfo c4= new ColumnInfo("agree","agree",null,ColumnType.STRING);
         c4.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
                 add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
             }
         });
-        ColumnInfo c5= new ColumnInfo("image","图片",ColumnType.IMAGE);
+        ColumnInfo c5= new ColumnInfo("image","图片",null,ColumnType.IMAGE);
         c5.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
                 add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
             }
         });
-        ColumnInfo c6= new ColumnInfo("image2","图片2",ColumnType.IMAGES);
+        ColumnInfo c6= new ColumnInfo("image2","图片2",null,ColumnType.IMAGES);
+        c6.setRules(new ArrayList<ColumnInfo.Rule>() {
+            {
+                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+            }
+        });
+        columnInfos.addAll(Arrays.asList(c1,c2,c3,c4,c5,c6));
+        ImportResult importResult = ExcelUtil.importExcel(filepath,//excle文件路径,也传excle文件的字节数组byte[],支持xls和xlsx。
+                columnInfos,//中间类类型
+                true//是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
+        );
+        System.out.println(importResult);
+    }
+    @Test
+    public void test4() {
+        String filepath = System.getProperty("user.dir") + "//testdata//test1.xlsx";
+        List<ColumnInfo> columnInfos = new ArrayList<>();
+        ColumnInfo c1= new ColumnInfo("age",null,"B",ColumnType.LONG);
+        c1.setRules(new ArrayList<ColumnInfo.Rule>() {
+            {
+                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add(new ColumnInfo.Rule("/^(?:[1-9]|[1-9][0-9])$/","年龄必须是1到99"));
+            }
+        });
+        ColumnInfo c2= new ColumnInfo("name",null,"A",ColumnType.STRING);
+        c2.setRules(new ArrayList<ColumnInfo.Rule>() {
+            {
+                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+            }
+        });
+        ColumnInfo c3= new ColumnInfo("birth",null,"C",ColumnType.DATETIME);
+        c3.setRules(new ArrayList<ColumnInfo.Rule>() {
+            {
+                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+            }
+        });
+        ColumnInfo c4= new ColumnInfo("agree",null,"D",ColumnType.STRING);
+        c4.setRules(new ArrayList<ColumnInfo.Rule>() {
+            {
+                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+            }
+        });
+        ColumnInfo c5= new ColumnInfo("image",null,"G",ColumnType.IMAGE);
+        c5.setRules(new ArrayList<ColumnInfo.Rule>() {
+            {
+                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+            }
+        });
+        ColumnInfo c6= new ColumnInfo("image2",null,"F",ColumnType.IMAGES);
         c6.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
                 add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
