@@ -59,6 +59,11 @@ public class ImportResult<T> {
     @Data
     public static class ErrorMessage {
         private Integer row;
+
+        /**
+         * excel 的列标识
+         */
+        private String col;
         /**
          * excel的单元格地址 A1 B2
          */

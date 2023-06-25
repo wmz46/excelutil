@@ -428,6 +428,7 @@ public class ExcelUtil {
                             validate = false;
                             ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
                             errorMessage.setRow(row.getRowNum());
+                            errorMessage.setCol(CellReference.convertNumToColString(c));
                             errorMessage.setCell(new CellAddress(row.getRowNum(), c).formatAsString());
                             if (e instanceof ImageOutOfBoundsException) {
                                 errorMessage.setMessage(e.getMessage());
@@ -568,6 +569,7 @@ public class ExcelUtil {
                         if (field.getName().equals(v.getFieldName())) {
                             ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
                             errorMessage.setRow(row.getRowNum());
+                            errorMessage.setCol(CellReference.convertNumToColString(m.getKey()));
                             errorMessage.setCell(new CellAddress(row.getRowNum(), m.getKey()).toString());
                             errorMessage.setMessage(v.getMessage());
                             result.getErrors().add(errorMessage);
@@ -613,6 +615,7 @@ public class ExcelUtil {
                     if (columnInfo.getName().equals(v.getFieldName())) {
                         ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
                         errorMessage.setRow(row.getRowNum());
+                        errorMessage.setCol(CellReference.convertNumToColString(m.getKey()));
                         errorMessage.setCell(new CellAddress(row.getRowNum(), m.getKey()).toString());
                         errorMessage.setMessage(v.getMessage());
                         result.getErrors().add(errorMessage);
@@ -1297,6 +1300,7 @@ public class ExcelUtil {
                             validate = false;
                             ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
                             errorMessage.setRow(row.getRowNum());
+                            errorMessage.setCol(CellReference.convertNumToColString(c));
                             errorMessage.setCell(new CellAddress(row.getRowNum(), c).formatAsString());
                             if (e instanceof ImageOutOfBoundsException) {
                                 errorMessage.setMessage(e.getMessage());
