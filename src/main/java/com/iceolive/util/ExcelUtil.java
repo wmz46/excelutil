@@ -679,39 +679,50 @@ public class ExcelUtil {
                     String code = rule.getCode();
                     String msg = rule.getMessage();
                     if (value != null) {
-                        String regex = null;
-                        if (code.startsWith("/") && code.endsWith("/")) {
-                            //正则
-                            regex = code.substring(1, code.length() - 2);
-                            if (StringUtil.isEmpty(msg)) {
-                                msg = "参数输入有误";
+                        if(!Arrays.asList(ColumnType.IMAGE,ColumnType.IMAGES).contains(columnInfo.getType())) {
+                            String regex = null;
+                            if (code.startsWith("/") && code.endsWith("/")) {
+                                //正则
+                                regex = code.substring(1, code.length() - 2);
+                                if (StringUtil.isEmpty(msg)) {
+                                    msg = "参数输入有误";
+                                }
+                            } else if (ValidationConsts.EMAIL.equals(code)) {
+                                regex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+                                if (StringUtil.isEmpty(msg)) {
+                                    msg = "请输入正确的邮箱地址";
+                                }
+                            } else if (ValidationConsts.MOBILE.equals(code)) {
+                                regex = "^1[0-9]{10}$";
+                                if (StringUtil.isEmpty(msg)) {
+                                    msg = "请输入正确的手机号";
+                                }
+                            } else if (ValidationConsts.REQUIRED.equals(code)) {
+                                regex = "^[\\s\\S]+$";
+                                if (StringUtil.isEmpty(msg)) {
+                                    msg = "参数不能为空";
+                                }
                             }
-                        } else if (ValidationConsts.EMAIL.equals(code)) {
-                            regex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
-                            if (StringUtil.isEmpty(msg)) {
-                                msg = "请输入正确的邮箱地址";
+                            if (!StringUtil.isEmpty(regex)) {
+                                if (!Pattern.matches(regex, String.valueOf(value))) {
+                                    result.add(new ValidateResult(name, msg));
+                                }
+                            } else if (ValidationConsts.IDCARD.equals(code)) {
+                                if (StringUtil.isEmpty(msg)) {
+                                    msg = "请输入正确的身份证号";
+                                }
+                                if (!IdCardUtil.validate(String.valueOf(value))) {
+                                    result.add(new ValidateResult(name, msg));
+                                }
                             }
-                        } else if (ValidationConsts.MOBILE.equals(code)) {
-                            regex = "^1[0-9]{10}$";
-                            if (StringUtil.isEmpty(msg)) {
-                                msg = "请输入正确的手机号";
-                            }
-                        } else if (ValidationConsts.REQUIRED.equals(code)) {
-                            regex = "^[\\s\\S]+$";
-                            if (StringUtil.isEmpty(msg)) {
-                                msg = "参数不能为空";
-                            }
-                        }
-                        if (!StringUtil.isEmpty(regex)) {
-                            if (!Pattern.matches(regex, String.valueOf(value))) {
-                                result.add(new ValidateResult(name, msg));
-                            }
-                        } else if (ValidationConsts.IDCARD.equals(code)) {
-                            if (StringUtil.isEmpty(msg)) {
-                                msg = "请输入正确的身份证号";
-                            }
-                            if (!IdCardUtil.validate(String.valueOf(value))) {
-                                result.add(new ValidateResult(name, msg));
+                        }else{
+                            if(value.getClass().isAssignableFrom(ArrayList.class)){
+                                if(ValidationConsts.REQUIRED.equals(code) && CollectionUtils.isEmpty((List)value)){
+                                    if (StringUtil.isEmpty(msg)) {
+                                        msg = "参数不能为空";
+                                    }
+                                    result.add(new ValidateResult(name,msg));
+                                }
                             }
                         }
                     } else {
