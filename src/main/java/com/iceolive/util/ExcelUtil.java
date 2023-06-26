@@ -697,7 +697,7 @@ public class ExcelUtil {
                                 msg = "请输入正确的手机号";
                             }
                         } else if (ValidationConsts.REQUIRED.equals(code)) {
-                            regex = "^.+$";
+                            regex = "^[\\s\\S]+$";
                             if (StringUtil.isEmpty(msg)) {
                                 msg = "参数不能为空";
                             }
