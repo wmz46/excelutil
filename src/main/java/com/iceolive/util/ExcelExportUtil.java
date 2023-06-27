@@ -141,7 +141,7 @@ public class ExcelExportUtil {
             case BufferedImage.TYPE_3BYTE_BGR:
             case BufferedImage.TYPE_INT_ARGB:
             default:
-                pictureType =Workbook.PICTURE_TYPE_PNG
+                pictureType =Workbook.PICTURE_TYPE_PNG;
                 break;
         }
         int pictureIndex = workbook.addPicture(imageData, pictureType);
