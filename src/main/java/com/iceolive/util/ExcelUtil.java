@@ -1276,7 +1276,7 @@ public class ExcelUtil {
                                 }
 
                                 Object value = null;
-                                if (isDateCell || columnInfo.getType() == ColumnType.DATETIME) {
+                                if (isDateCell || columnInfo.getType() == ColumnType.DATETIME || columnInfo.getType() == ColumnType.DATE) {
                                     //特殊处理日期格式
                                     if (!StringUtil.isBlank(str)) {
                                         value = StringUtil.parse(str, dateFormat, Date.class);
