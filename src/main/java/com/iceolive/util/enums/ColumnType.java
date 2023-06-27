@@ -1,5 +1,7 @@
 package com.iceolive.util.enums;
 
+import java.util.Arrays;
+
 /**
  * @author wangmianzhe
  */
@@ -42,5 +44,9 @@ public enum ColumnType {
 
     public int getValue() {
         return this.value;
+    }
+
+    public static ColumnType valueOf(int value) {
+        return Arrays.stream(values()).filter(m -> m.value == value).findFirst().orElse(null);
     }
 }

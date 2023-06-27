@@ -26,7 +26,7 @@ public class ColumnInfo {
      * @param type 字段类型
      */
 
-    public ColumnInfo(String name, String title, String colString, ColumnType type) {
+    public ColumnInfo(String name, String title, String colString, int type) {
         this.name = name;
         this.colString = colString;
         this.title = title;
@@ -46,9 +46,9 @@ public class ColumnInfo {
      */
     private String title;
     /**
-     * 字段类型
+     * 字段类型 ，对应枚举值 ColumnType
      */
-    private ColumnType type;
+    private int type;
     /**
      * 校验规则
      */

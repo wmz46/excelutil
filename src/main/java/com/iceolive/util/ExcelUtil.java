@@ -1191,7 +1191,7 @@ public class ExcelUtil {
         result.setErrors(new ArrayList<>());
         Workbook workbook = null;
         try {
-            if (columnInfos.stream().anyMatch(m -> m.getType() == ColumnType.IMAGE || m.getType() == ColumnType.IMAGES)) {
+            if (columnInfos.stream().anyMatch(m -> m.getType() == ColumnType.IMAGE.getValue() || m.getType() == ColumnType.IMAGES.getValue())) {
                 //如果有图片字段，则不使用StreamingWorkbook
                 workbook = new XSSFWorkbook(inputStream);
             } else {
@@ -1276,16 +1276,16 @@ public class ExcelUtil {
                                 }
 
                                 Object value = null;
-                                if (isDateCell || columnInfo.getType() == ColumnType.DATETIME || columnInfo.getType() == ColumnType.DATE) {
+                                if (isDateCell || columnInfo.getType() == ColumnType.DATETIME.getValue() || columnInfo.getType() == ColumnType.DATE.getValue()) {
                                     //特殊处理日期格式
                                     if (!StringUtil.isBlank(str)) {
                                         value = StringUtil.parse(str, dateFormat, Date.class);
                                     }
-                                } else if (columnInfo.getType() == ColumnType.IMAGE) {
+                                } else if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
                                     value = getCellImageBytes((XSSFWorkbook) workbook, cell);
-                                } else if (columnInfo.getType() == ColumnType.LONG) {
+                                } else if (columnInfo.getType() == ColumnType.LONG.getValue()) {
                                     value = StringUtil.parse(str, Long.class);
-                                } else if (columnInfo.getType() == ColumnType.DOUBLE) {
+                                } else if (columnInfo.getType() == ColumnType.DOUBLE.getValue()) {
                                     value = StringUtil.parse(str, Double.class);
                                 } else {
                                     value = str;
@@ -1294,12 +1294,12 @@ public class ExcelUtil {
                             } else {
                                 //单元格为null，处理图片
                                 Object value = null;
-                                if (columnInfo.getType() == ColumnType.IMAGE) {
+                                if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
                                     List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
                                     if (!CollectionUtils.isEmpty(floatImages)) {
                                         value =  floatImages.get(0);
                                     }
-                                } else if (columnInfo.getType() == ColumnType.IMAGES) {
+                                } else if (columnInfo.getType() == ColumnType.IMAGES.getValue()) {
 
                                     List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
                                     value = floatImages;
