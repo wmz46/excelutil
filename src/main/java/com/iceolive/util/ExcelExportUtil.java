@@ -83,60 +83,62 @@ public class ExcelExportUtil {
                         if (cell == null) {
                             cell = row.createCell(c);
                         }
+                        if (value == null) {
+                            continue;
+                        }
                         switch (ColumnType.valueOf(columnInfo.getType())) {
                             case IMAGE:
                             case IMAGES:
-                                if (value != null) {
-                                    //图片设置行高
-                                    row.setHeightInPoints((imgSize + 2 * imgPadding) * 0.75f);
-                                    float columnWidth = sheet.getColumnWidth(c);
-                                    int width = 32 * (imgSize + 2 * imgPadding);
-                                    if (columnWidth < width) {
-                                        sheet.setColumnWidth(c, width);
-                                    }
-                                    if (value instanceof byte[]) {
+
+                                //图片设置行高
+                                row.setHeightInPoints((imgSize + 2 * imgPadding) * 0.75f);
+                                float columnWidth = sheet.getColumnWidth(c);
+                                int width = 32 * (imgSize + 2 * imgPadding);
+                                if (columnWidth < width) {
+                                    sheet.setColumnWidth(c, width);
+                                }
+                                if (value instanceof byte[]) {
+                                    ClientAnchor anchor = new XSSFClientAnchor();
+                                    anchor.setRow1(r);
+                                    anchor.setCol1(c);
+                                    anchor.setRow2(r);
+                                    anchor.setCol2(c);
+                                    anchor.setDx1(Units.EMU_PER_PIXEL * imgPadding);
+                                    anchor.setDy1(Units.EMU_PER_PIXEL * imgPadding);
+                                    anchor.setDx2(Units.EMU_PER_PIXEL * (imgSize + imgPadding));
+                                    anchor.setDy2(Units.EMU_PER_PIXEL * (imgSize + imgPadding));
+                                    anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
+                                    Picture picture = drawing.createPicture(anchor, loadPictureData(workbook, (byte[]) value));
+
+                                } else if (value.getClass().isAssignableFrom(ArrayList.class)) {
+                                    ArrayList<byte[]> list = (ArrayList<byte[]>) value;
+                                    int i = 0;
+                                    for (byte[] bytes : list) {
                                         ClientAnchor anchor = new XSSFClientAnchor();
                                         anchor.setRow1(r);
                                         anchor.setCol1(c);
                                         anchor.setRow2(r);
                                         anchor.setCol2(c);
-                                        anchor.setDx1(Units.EMU_PER_PIXEL * imgPadding);
+                                        anchor.setDx1(Units.EMU_PER_PIXEL * (i * (imgSize + imgPadding) + imgPadding));
                                         anchor.setDy1(Units.EMU_PER_PIXEL * imgPadding);
-                                        anchor.setDx2(Units.EMU_PER_PIXEL * (imgSize + imgPadding));
+                                        anchor.setDx2(Units.EMU_PER_PIXEL * ((i + 1) * (imgSize + imgPadding)));
                                         anchor.setDy2(Units.EMU_PER_PIXEL * (imgSize + imgPadding));
                                         anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
-                                        Picture picture = drawing.createPicture(anchor, loadPictureData(workbook, (byte[]) value));
+                                        Picture picture = drawing.createPicture(anchor, loadPictureData(workbook, bytes));
 
-                                    } else if (value.getClass().isAssignableFrom(ArrayList.class)) {
-                                        ArrayList<byte[]> list = (ArrayList<byte[]>) value;
-                                        int i = 0;
-                                        for (byte[] bytes : list) {
-                                            ClientAnchor anchor = new XSSFClientAnchor();
-                                            anchor.setRow1(r);
-                                            anchor.setCol1(c);
-                                            anchor.setRow2(r);
-                                            anchor.setCol2(c);
-                                            anchor.setDx1(Units.EMU_PER_PIXEL * (i * (imgSize + imgPadding) + imgPadding));
-                                            anchor.setDy1(Units.EMU_PER_PIXEL * imgPadding);
-                                            anchor.setDx2(Units.EMU_PER_PIXEL * ((i + 1) * (imgSize + imgPadding)));
-                                            anchor.setDy2(Units.EMU_PER_PIXEL * (imgSize + imgPadding));
-                                            anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
-                                            Picture picture = drawing.createPicture(anchor, loadPictureData(workbook, bytes));
-
-                                            i++;
-                                        }
-
-                                        if (list.size() > 0) {
-                                            if (maxImageCount < list.size()) {
-                                                maxImageCount = list.size();
-                                            }
-                                            width = 32 * (list.size() * (imgSize + imgPadding) + imgPadding);
-                                            if (columnWidth < width) {
-                                                sheet.setColumnWidth(c, width);
-                                            }
-                                        }
-
+                                        i++;
                                     }
+
+                                    if (list.size() > 0) {
+                                        if (maxImageCount < list.size()) {
+                                            maxImageCount = list.size();
+                                        }
+                                        width = 32 * (list.size() * (imgSize + imgPadding) + imgPadding);
+                                        if (columnWidth < width) {
+                                            sheet.setColumnWidth(c, width);
+                                        }
+                                    }
+
                                 }
                                 break;
                             case LONG:
