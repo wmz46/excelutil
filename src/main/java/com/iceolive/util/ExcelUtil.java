@@ -679,7 +679,7 @@ public class ExcelUtil {
                     String code = rule.getCode();
                     String msg = rule.getMessage();
                     if (value != null) {
-                        if(!Arrays.asList(ColumnType.IMAGE,ColumnType.IMAGES).contains(columnInfo.getType())) {
+                        if (!Arrays.asList(ColumnType.IMAGE, ColumnType.IMAGES).contains(columnInfo.getType())) {
                             String regex = null;
                             if (code.startsWith("/") && code.endsWith("/")) {
                                 //正则
@@ -715,13 +715,13 @@ public class ExcelUtil {
                                     result.add(new ValidateResult(name, msg));
                                 }
                             }
-                        }else{
-                            if(value.getClass().isAssignableFrom(ArrayList.class)){
-                                if(ValidationConsts.REQUIRED.equals(code) && CollectionUtils.isEmpty((List)value)){
+                        } else {
+                            if (value.getClass().isAssignableFrom(ArrayList.class)) {
+                                if (ValidationConsts.REQUIRED.equals(code) && CollectionUtils.isEmpty((List) value)) {
                                     if (StringUtil.isEmpty(msg)) {
                                         msg = "参数不能为空";
                                     }
-                                    result.add(new ValidateResult(name,msg));
+                                    result.add(new ValidateResult(name, msg));
                                 }
                             }
                         }
@@ -1229,10 +1229,10 @@ public class ExcelUtil {
                         }
                     }
                 }
-                columnInfos.stream().filter(m->StringUtil.isNotEmpty(m.getColString())).forEach(columnInfo ->
+                columnInfos.stream().filter(m -> StringUtil.isNotEmpty(m.getColString())).forEach(columnInfo ->
                 {
                     int i = CellReference.convertColStringToIndex(columnInfo.getColString());
-                    headMap.put(i,columnInfo);
+                    headMap.put(i, columnInfo);
                 });
 
             } else {
@@ -1243,10 +1243,23 @@ public class ExcelUtil {
                     for (Integer c : headMap.keySet()) {
                         Cell cell = row.getCell(c);
                         ColumnInfo columnInfo = headMap.get(c);
+                        //处理图片
+                        if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
+                            List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                            if (!CollectionUtils.isEmpty(floatImages)) {
+                                obj.put(columnInfo.getName(), floatImages.get(0));
+                            }
+                            continue;
+                        } else if (columnInfo.getType() == ColumnType.IMAGES.getValue()) {
+                            List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                            obj.put(columnInfo.getName(), floatImages);
+                            continue;
+                        }
                         //是否日期单元格
                         boolean isDateCell = false;
                         String dateFormat = "yyyy-MM-dd HH:mm:ss";
                         try {
+
                             if (null != cell) {
                                 String str = null;
                                 CellType cellType = cell.getCellTypeEnum();
@@ -1289,21 +1302,6 @@ public class ExcelUtil {
                                     value = StringUtil.parse(str, Double.class);
                                 } else {
                                     value = str;
-                                }
-                                obj.put(columnInfo.getName(), value);
-                            } else {
-                                //单元格为null，处理图片
-                                Object value = null;
-                                if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
-                                    List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
-                                    if (!CollectionUtils.isEmpty(floatImages)) {
-                                        value =  floatImages.get(0);
-                                    }
-                                } else if (columnInfo.getType() == ColumnType.IMAGES.getValue()) {
-
-                                    List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
-                                    value = floatImages;
-
                                 }
                                 obj.put(columnInfo.getName(), value);
                             }
