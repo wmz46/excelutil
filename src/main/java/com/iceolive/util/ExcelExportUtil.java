@@ -28,7 +28,7 @@ public class ExcelExportUtil {
      * @param inputStream 导出模板
      * @param data        导出数据
      * @param columnInfos 导出列配置
-     * @param startRow    导出数据开始行（从0开始）
+     * @param startRow    导出数据开始行（从1开始）
      * @param onlyData    是否只导出数据（不含标题）
      * @return
      */
@@ -49,7 +49,7 @@ public class ExcelExportUtil {
             if (drawing == null) {
                 drawing = sheet.createDrawingPatriarch();
             }
-            int r = startRow;
+            int r = startRow - 1;
             if (!onlyData) {
                 //填充标题
                 Row row = sheet.getRow(r);

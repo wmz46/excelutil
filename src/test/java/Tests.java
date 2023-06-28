@@ -204,7 +204,7 @@ public class Tests {
         List<ColumnInfo> columnInfos = new ArrayList<>();
         columnInfos.add(new ColumnInfo("title", "标题", "A", ColumnType.STRING.getValue()));
         columnInfos.add(new ColumnInfo("images", "图片", "B", ColumnType.IMAGES.getValue()));
-        ImportResult importResult = ExcelUtil.importExcel(filepath, columnInfos, true, 0);
+        ImportResult importResult = ExcelUtil.importExcel(filepath, columnInfos, true, 1);
         System.out.println(importResult);
     }
 }

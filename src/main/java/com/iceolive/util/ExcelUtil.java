@@ -80,7 +80,7 @@ public class ExcelUtil {
     public static <T> ImportResult importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant) {
-        return importExcel(filepath, clazz, faultTolerant, 0, null, null);
+        return importExcel(filepath, clazz, faultTolerant, 1, null, null);
 
     }
 
@@ -90,7 +90,7 @@ public class ExcelUtil {
      * @param filepath      excel文件路径
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param <T>
      * @return
      */
@@ -115,7 +115,7 @@ public class ExcelUtil {
             String filepath, Class<T> clazz,
             boolean faultTolerant,
             Function<T, Boolean> importFunc) {
-        return importExcel(filepath, clazz, faultTolerant, 0, null, importFunc);
+        return importExcel(filepath, clazz, faultTolerant, 1, null, importFunc);
 
     }
 
@@ -125,7 +125,7 @@ public class ExcelUtil {
      * @param filepath      excel文件路径
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @param <T>
      * @return
@@ -154,7 +154,7 @@ public class ExcelUtil {
             boolean faultTolerant,
             Function<T, List<ValidateResult>> customValidateFunc,
             Function<T, Boolean> importFunc) {
-        return importExcel(filepath, clazz, faultTolerant, 0, customValidateFunc, importFunc);
+        return importExcel(filepath, clazz, faultTolerant, 1, customValidateFunc, importFunc);
     }
 
 
@@ -163,7 +163,7 @@ public class ExcelUtil {
      *
      * @param filepath           excel文件路径
      * @param clazz              中间类类型
-     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow           开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
@@ -206,7 +206,7 @@ public class ExcelUtil {
      * @param inputStream   excel文件的字节数组
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param <T>
      * @return
      */
@@ -239,7 +239,7 @@ public class ExcelUtil {
      * @param inputStream   excel文件的字节数组
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @param <T>
      * @return
@@ -277,7 +277,7 @@ public class ExcelUtil {
      * @param inputStream        excel文件的字节数组
      * @param clazz              中间类类型
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow           开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @param <T>                中间类
@@ -317,10 +317,11 @@ public class ExcelUtil {
         Map<Integer, List<Field>> headMap = null;
         Map<Integer, T> list = new LinkedHashMap<>();
         int totalCount = 0;
+        int titleRowNum = startRow-1;
         for (Row row : sheet) {
-            if (row.getRowNum() < startRow) {
+            if (row.getRowNum() < titleRowNum) {
                 //小于标题行的抛弃
-            } else if (row.getRowNum() == startRow) {
+            } else if (row.getRowNum() == titleRowNum) {
                 headMap = getHeadMap(clazz, row);
 
             } else {
@@ -989,7 +990,7 @@ public class ExcelUtil {
     public static ImportResult importExcel(
             String filepath, List<ColumnInfo> columnInfos,
             boolean faultTolerant) {
-        return importExcel(filepath, columnInfos, faultTolerant, 0, null, null);
+        return importExcel(filepath, columnInfos, faultTolerant, 1, null, null);
     }
 
     /**
@@ -998,7 +999,7 @@ public class ExcelUtil {
      * @param filepath      excel文件路径
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @return
      */
     public static ImportResult importExcel(
@@ -1022,7 +1023,7 @@ public class ExcelUtil {
             String filepath, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
             Function<Map<String, Object>, Boolean> importFunc) {
-        return importExcel(filepath, columnInfos, faultTolerant, 0, null, importFunc);
+        return importExcel(filepath, columnInfos, faultTolerant, 1, null, importFunc);
 
     }
 
@@ -1032,7 +1033,7 @@ public class ExcelUtil {
      * @param filepath      excel文件路径
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
@@ -1059,7 +1060,7 @@ public class ExcelUtil {
             boolean faultTolerant,
             Function<Map<String, Object>, List<ValidateResult>> customValidateFunc,
             Function<Map<String, Object>, Boolean> importFunc) {
-        return importExcel(filepath, columnInfos, faultTolerant, 0, customValidateFunc, importFunc);
+        return importExcel(filepath, columnInfos, faultTolerant, 1, customValidateFunc, importFunc);
     }
 
     /**
@@ -1068,7 +1069,7 @@ public class ExcelUtil {
      * @param filepath           excel文件路径
      * @param columnInfos        列信息
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow           开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
@@ -1099,7 +1100,7 @@ public class ExcelUtil {
     public static ImportResult importExcel(
             InputStream inputStream, List<ColumnInfo> columnInfos,
             boolean faultTolerant) {
-        return importExcel(inputStream, columnInfos, faultTolerant, 0, null, null);
+        return importExcel(inputStream, columnInfos, faultTolerant, 1, null, null);
     }
 
     /**
@@ -1108,7 +1109,7 @@ public class ExcelUtil {
      * @param inputStream   excel文件的字节数组
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @return
      */
     public static ImportResult importExcel(
@@ -1131,7 +1132,7 @@ public class ExcelUtil {
             InputStream inputStream, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
             Function<Map<String, Object>, Boolean> importFunc) {
-        return importExcel(inputStream, columnInfos, faultTolerant, 0, null, importFunc);
+        return importExcel(inputStream, columnInfos, faultTolerant, 1, null, importFunc);
 
     }
 
@@ -1141,7 +1142,7 @@ public class ExcelUtil {
      * @param inputStream   excel文件的字节数组
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow      开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
      */
@@ -1167,7 +1168,7 @@ public class ExcelUtil {
             boolean faultTolerant,
             Function<Map<String, Object>, List<ValidateResult>> customValidateFunc,
             Function<Map<String, Object>, Boolean> importFunc) {
-        return importExcel(inputStream, columnInfos, faultTolerant, 0, customValidateFunc, importFunc);
+        return importExcel(inputStream, columnInfos, faultTolerant, 1, customValidateFunc, importFunc);
     }
 
     /**
@@ -1176,7 +1177,7 @@ public class ExcelUtil {
      * @param inputStream        excel文件的字节数组
      * @param columnInfos        列信息
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param startRow           开始行数，从0开始，当第一行是标题，则传0，当第二行是标题则传1。
+     * @param startRow           开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
      * @return
@@ -1215,10 +1216,11 @@ public class ExcelUtil {
         Map<Integer, ColumnInfo> headMap = new HashMap<>();
         Map<Integer, Map<String, Object>> list = new LinkedHashMap<>();
         int totalCount = 0;
+        int titleRowNum = startRow -1;
         for (Row row : sheet) {
-            if (row.getRowNum() < startRow) {
+            if (row.getRowNum() < titleRowNum) {
                 //小于标题行的抛弃
-            } else if (row.getRowNum() == startRow) {
+            } else if (row.getRowNum() == titleRowNum) {
                 for (int c = 0; c < row.getLastCellNum(); c++) {
                     Cell cell = row.getCell(c);
                     if (null != cell) {
