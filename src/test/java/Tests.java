@@ -69,38 +69,38 @@ public class Tests {
         ColumnInfo c1 = new ColumnInfo("age", "年龄", null, ColumnType.LONG.getValue());
         c1.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
-                add(new ColumnInfo.Rule("/^(?:[1-9]|[1-9][0-9])$/", "年龄必须是1到99"));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromRange(1D,99D, "年龄必须是1到99"));
             }
         });
         ColumnInfo c2 = new ColumnInfo("name", "姓名", null, ColumnType.STRING.getValue());
         c2.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c3 = new ColumnInfo("birth", "birth", null, ColumnType.DATETIME.getValue());
         c3.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c4 = new ColumnInfo("agree", "agree", null, ColumnType.STRING.getValue());
         c4.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c5 = new ColumnInfo("image", "图片", null, ColumnType.IMAGE.getValue());
         c5.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c6 = new ColumnInfo("image2", "图片2", null, ColumnType.IMAGES.getValue());
         c6.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         columnInfos.addAll(Arrays.asList(c1, c2, c3, c4, c5, c6));
@@ -115,41 +115,43 @@ public class Tests {
     public void test4() {
         String filepath = System.getProperty("user.dir") + "//testdata//test1.xlsx";
         List<ColumnInfo> columnInfos = new ArrayList<>();
-        ColumnInfo c1 = new ColumnInfo("age", null, "B", ColumnType.LONG.getValue());
+        ColumnInfo c1 = new ColumnInfo("age", null, "B", ColumnType.STRING.getValue());
         c1.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
-                add(new ColumnInfo.Rule("/^(?:[1-9]|[1-9][0-9])$/", "年龄必须是1到99"));
+                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
+                add( ColumnInfo.Rule.fromRegExp("\\d+", "年龄必须是数字"));
+                add( ColumnInfo.Rule.fromRange(1,99, "年龄必须是1到99"));
+                add(ColumnInfo.Rule.fromEnums(Arrays.asList("4","5","99"),"年龄不在枚举范围"));
             }
         });
         ColumnInfo c2 = new ColumnInfo("name", null, "A", ColumnType.STRING.getValue());
         c2.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c3 = new ColumnInfo("birth", null, "C", ColumnType.DATETIME.getValue());
         c3.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c4 = new ColumnInfo("agree", null, "D", ColumnType.STRING.getValue());
         c4.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c5 = new ColumnInfo("image", null, "G", ColumnType.IMAGE.getValue());
         c5.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c6 = new ColumnInfo("image2", null, "F", ColumnType.IMAGES.getValue());
         c6.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add(new ColumnInfo.Rule(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         columnInfos.addAll(Arrays.asList(c1, c2, c3, c4, c5, c6));
@@ -198,8 +200,9 @@ public class Tests {
         System.out.println(outputFile);
 
     }
+
     @Test
-    public void test6(){
+    public void test6() {
         String filepath = System.getProperty("user.dir") + "//testdata//result.xlsx";
         List<ColumnInfo> columnInfos = new ArrayList<>();
         columnInfos.add(new ColumnInfo("title", "标题", "A", ColumnType.STRING.getValue()));

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iceolive.util.annotation.ExcelColumn;
 import com.iceolive.util.constants.ValidationConsts;
 import com.iceolive.util.enums.ColumnType;
+import com.iceolive.util.enums.RuleType;
 import com.iceolive.util.exception.ImageOutOfBoundsException;
 import com.iceolive.util.model.*;
 import com.iceolive.xpathmapper.XPathMapper;
@@ -15,6 +16,7 @@ import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersionDetector;
 import com.networknt.schema.ValidationMessage;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
@@ -317,7 +319,7 @@ public class ExcelUtil {
         Map<Integer, List<Field>> headMap = null;
         Map<Integer, T> list = new LinkedHashMap<>();
         int totalCount = 0;
-        int titleRowNum = startRow-1;
+        int titleRowNum = startRow - 1;
         for (Row row : sheet) {
             if (row.getRowNum() < titleRowNum) {
                 //小于标题行的抛弃
@@ -679,41 +681,60 @@ public class ExcelUtil {
                 for (ColumnInfo.Rule rule : columnInfo.getRules()) {
                     String code = rule.getCode();
                     String msg = rule.getMessage();
+                    RuleType ruleType = rule.getType();
                     if (value != null) {
                         if (!Arrays.asList(ColumnType.IMAGE, ColumnType.IMAGES).contains(columnInfo.getType())) {
-                            String regex = null;
-                            if (code.startsWith("/") && code.endsWith("/")) {
-                                //正则
-                                regex = code.substring(1, code.length() - 2);
-                                if (StringUtil.isEmpty(msg)) {
-                                    msg = "参数输入有误";
+                            if (Arrays.asList(RuleType.BUILTIN, RuleType.REGEXP).contains(ruleType)) {
+                                String regex = null;
+                                if (ruleType == RuleType.REGEXP) {
+                                    //正则
+                                    regex = code;
+                                    if (StringUtil.isEmpty(msg)) {
+                                        msg = "参数输入有误";
+                                    }
+                                } else if (ValidationConsts.EMAIL.equals(code)) {
+                                    regex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+                                    if (StringUtil.isEmpty(msg)) {
+                                        msg = "请输入正确的邮箱地址";
+                                    }
+                                } else if (ValidationConsts.MOBILE.equals(code)) {
+                                    regex = "^1[0-9]{10}$";
+                                    if (StringUtil.isEmpty(msg)) {
+                                        msg = "请输入正确的手机号";
+                                    }
+                                } else if (ValidationConsts.REQUIRED.equals(code)) {
+                                    regex = "^[\\s\\S]+$";
+                                    if (StringUtil.isEmpty(msg)) {
+                                        msg = "参数不能为空";
+                                    }
                                 }
-                            } else if (ValidationConsts.EMAIL.equals(code)) {
-                                regex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
-                                if (StringUtil.isEmpty(msg)) {
-                                    msg = "请输入正确的邮箱地址";
+                                if (!StringUtil.isEmpty(regex)) {
+                                    if (!Pattern.matches(regex, String.valueOf(value))) {
+                                        result.add(new ValidateResult(name, msg));
+                                    }
+                                } else if (ValidationConsts.IDCARD.equals(code)) {
+                                    if (StringUtil.isEmpty(msg)) {
+                                        msg = "请输入正确的身份证号";
+                                    }
+                                    if (!IdCardUtil.validate(String.valueOf(value))) {
+                                        result.add(new ValidateResult(name, msg));
+                                    }
                                 }
-                            } else if (ValidationConsts.MOBILE.equals(code)) {
-                                regex = "^1[0-9]{10}$";
-                                if (StringUtil.isEmpty(msg)) {
-                                    msg = "请输入正确的手机号";
-                                }
-                            } else if (ValidationConsts.REQUIRED.equals(code)) {
-                                regex = "^[\\s\\S]+$";
-                                if (StringUtil.isEmpty(msg)) {
-                                    msg = "参数不能为空";
-                                }
-                            }
-                            if (!StringUtil.isEmpty(regex)) {
-                                if (!Pattern.matches(regex, String.valueOf(value))) {
+                            } else if (RuleType.ENUMS == ruleType) {
+                                //枚举校验
+                                if (rule.getEnumValues() == null || !rule.getEnumValues().contains(String.valueOf(value))) {
                                     result.add(new ValidateResult(name, msg));
                                 }
-                            } else if (ValidationConsts.IDCARD.equals(code)) {
-                                if (StringUtil.isEmpty(msg)) {
-                                    msg = "请输入正确的身份证号";
-                                }
-                                if (!IdCardUtil.validate(String.valueOf(value))) {
-                                    result.add(new ValidateResult(name, msg));
+                            } else if (RuleType.RANGE == ruleType) {
+                                //范围校验
+                                try {
+                                    if (!NumberUtil.lessOrEqual(rule.getMin(), value)) {
+                                        result.add(new ValidateResult(name, msg));
+                                    } else if (!NumberUtil.greaterOrEqual(rule.getMax(), value)) {
+                                        result.add(new ValidateResult(name, msg));
+                                    }
+                                }catch (Exception e){
+                                    result.add(new ValidateResult(name,msg));
                                 }
                             }
                         } else {
@@ -1216,7 +1237,7 @@ public class ExcelUtil {
         Map<Integer, ColumnInfo> headMap = new HashMap<>();
         Map<Integer, Map<String, Object>> list = new LinkedHashMap<>();
         int totalCount = 0;
-        int titleRowNum = startRow -1;
+        int titleRowNum = startRow - 1;
         for (Row row : sheet) {
             if (row.getRowNum() < titleRowNum) {
                 //小于标题行的抛弃
