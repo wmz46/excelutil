@@ -52,7 +52,7 @@ import java.util.regex.Pattern;
  */
 @SuppressWarnings("unchecked")
 public class ExcelUtil {
-    private static Pattern dispimagPattern = Pattern.compile(".*DISPIMG\\(\"(ID_[\\dA-F]{32})\".*");
+
     private static Validator validator = null;
 
     private static Validator getValidatorInstance() {
@@ -340,39 +340,11 @@ public class ExcelUtil {
                         Cell cell = row.getCell(c);
                         List<Field> fields = headMap.get(c);
                         //是否日期单元格
-                        boolean isDateCell = false;
+                        boolean isDateCell =  SheetUtil.isDateCell(cell);
                         String dateFormat = "yyyy-MM-dd HH:mm:ss";
-
                         try {
-
                             if (null != cell) {
-                                String str = null;
-                                CellType cellType = cell.getCellTypeEnum();
-                                //支持公式单元格
-                                if (cellType == CellType.FORMULA) {
-                                    cellType = cell.getCachedFormulaResultTypeEnum();
-                                }
-                                switch (cellType) {
-                                    case NUMERIC:
-                                        if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                                            isDateCell = true;
-                                            str = StringUtil.format(cell.getDateCellValue(), dateFormat);
-                                        } else {
-                                            BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
-                                            str = bd.stripTrailingZeros().toPlainString();
-                                        }
-                                        break;
-                                    case BOOLEAN:
-                                        str = String.valueOf(cell.getBooleanCellValue());
-                                        break;
-                                    case ERROR:
-                                        throw new RuntimeException("单元格为错误值");
-                                    case STRING:
-                                    default:
-                                        str = cell.getStringCellValue();
-                                        break;
-                                }
-
+                                String str = SheetUtil.getCellStringValue(cell);
                                 for (Field field : fields) {
                                     Object value = null;
                                     if (isDateCell || field.getType().isAssignableFrom(Date.class) || field.getType().isAssignableFrom(LocalDateTime.class) || field.getType().isAssignableFrom(LocalDate.class)) {
@@ -384,9 +356,9 @@ public class ExcelUtil {
                                         ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
                                         value = StringUtil.parseBoolean(str, excelColumn.trueString(), excelColumn.falseString(), field.getType());
                                     } else if (field.getType().isArray() && field.getType().getComponentType().equals(byte.class)) {
-                                        value = getCellImageBytes((XSSFWorkbook) workbook, cell);
+                                        value = SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell);
                                     } else if (field.getType().isAssignableFrom(BufferedImage.class)) {
-                                        value = ImageUtil.Bytes2Image(getCellImageBytes((XSSFWorkbook) workbook, cell));
+                                        value = ImageUtil.Bytes2Image(SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell));
                                     } else {
                                         value = StringUtil.parse(str, field.getType());
                                     }
@@ -607,46 +579,7 @@ public class ExcelUtil {
         return validate;
     }
 
-    private static boolean isValidate(ImportResult result, Map<Integer, ColumnInfo> headMap, Row row, boolean validate, List<ValidateResult> validateResults, List<ColumnInfo> columnInfos) {
-        if (validateResults != null && !validateResults.isEmpty()) {
-            validate = false;
-            for (ValidateResult v : validateResults) {
-                //错误是否在单元格内
-                boolean errorInCell = false;
-                for (Map.Entry<Integer, ColumnInfo> m : headMap.entrySet()) {
-                    ColumnInfo columnInfo = m.getValue();
-                    if (columnInfo.getName().equals(v.getFieldName())) {
-                        ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
-                        errorMessage.setRow(row.getRowNum());
-                        errorMessage.setCol(CellReference.convertNumToColString(m.getKey()));
-                        errorMessage.setCell(new CellAddress(row.getRowNum(), m.getKey()).toString());
-                        errorMessage.setMessage(v.getMessage());
-                        result.getErrors().add(errorMessage);
-                        errorInCell = true;
-                        break;
-                    }
-                }
-                if (!errorInCell) {
-                    String fieldName = v.getFieldName();
-                    String columnName = fieldName;
-                    ColumnInfo columnInfo = columnInfos.stream().filter(m -> m.getName().equals(fieldName)).findFirst().orElse(null);
-                    if (columnInfo != null) {
-                        String title = columnInfo.getTitle();
-                        if (StringUtil.isNotEmpty(title)) {
-                            columnName = title;
-                        }
-                    }
-                    //如果错误不在单元格内，不
-                    ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
-                    errorMessage.setRow(row.getRowNum());
-                    errorMessage.setMessage(v.getMessage() + "\n请检查[" + columnName + "]列是否存在");
-                    result.getErrors().add(errorMessage);
-                }
-            }
 
-        }
-        return validate;
-    }
 
     /**
      * 根据注解验证对象
@@ -672,95 +605,7 @@ public class ExcelUtil {
         return result;
     }
 
-    public static List<ValidateResult> validate(Map<String, Object> obj, List<ColumnInfo> columnInfos) {
-        List<ValidateResult> result = new ArrayList<>();
-        for (ColumnInfo columnInfo : columnInfos) {
-            String name = columnInfo.getName();
-            if (!CollectionUtils.isEmpty(columnInfo.getRules())) {
-                Object value = obj.get(name);
-                for (ColumnInfo.Rule rule : columnInfo.getRules()) {
-                    String code = rule.getCode();
-                    String msg = rule.getMessage();
-                    RuleType ruleType = rule.getType();
-                    if (value != null) {
-                        if (!Arrays.asList(ColumnType.IMAGE, ColumnType.IMAGES).contains(columnInfo.getType())) {
-                            if (Arrays.asList(RuleType.BUILTIN, RuleType.REGEXP).contains(ruleType)) {
-                                String regex = null;
-                                if (ruleType == RuleType.REGEXP) {
-                                    //正则
-                                    regex = code;
-                                    if (StringUtil.isEmpty(msg)) {
-                                        msg = "参数输入有误";
-                                    }
-                                } else if (ValidationConsts.EMAIL.equals(code)) {
-                                    regex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
-                                    if (StringUtil.isEmpty(msg)) {
-                                        msg = "请输入正确的邮箱地址";
-                                    }
-                                } else if (ValidationConsts.MOBILE.equals(code)) {
-                                    regex = "^1[0-9]{10}$";
-                                    if (StringUtil.isEmpty(msg)) {
-                                        msg = "请输入正确的手机号";
-                                    }
-                                } else if (ValidationConsts.REQUIRED.equals(code)) {
-                                    regex = "^[\\s\\S]+$";
-                                    if (StringUtil.isEmpty(msg)) {
-                                        msg = "参数不能为空";
-                                    }
-                                }
-                                if (!StringUtil.isEmpty(regex)) {
-                                    if (!Pattern.matches(regex, String.valueOf(value))) {
-                                        result.add(new ValidateResult(name, msg));
-                                    }
-                                } else if (ValidationConsts.IDCARD.equals(code)) {
-                                    if (StringUtil.isEmpty(msg)) {
-                                        msg = "请输入正确的身份证号";
-                                    }
-                                    if (!IdCardUtil.validate(String.valueOf(value))) {
-                                        result.add(new ValidateResult(name, msg));
-                                    }
-                                }
-                            } else if (RuleType.ENUMS == ruleType) {
-                                //枚举校验
-                                if (rule.getEnumValues() == null || !rule.getEnumValues().contains(String.valueOf(value))) {
-                                    result.add(new ValidateResult(name, msg));
-                                }
-                            } else if (RuleType.RANGE == ruleType) {
-                                //范围校验
-                                try {
-                                    if (!NumberUtil.lessOrEqual(rule.getMin(), value)) {
-                                        result.add(new ValidateResult(name, msg));
-                                    } else if (!NumberUtil.greaterOrEqual(rule.getMax(), value)) {
-                                        result.add(new ValidateResult(name, msg));
-                                    }
-                                }catch (Exception e){
-                                    result.add(new ValidateResult(name,msg));
-                                }
-                            }
-                        } else {
-                            if (value.getClass().isAssignableFrom(ArrayList.class)) {
-                                if (ValidationConsts.REQUIRED.equals(code) && CollectionUtils.isEmpty((List) value)) {
-                                    if (StringUtil.isEmpty(msg)) {
-                                        msg = "参数不能为空";
-                                    }
-                                    result.add(new ValidateResult(name, msg));
-                                }
-                            }
-                        }
-                    } else {
-                        if (ValidationConsts.REQUIRED.equals(code)) {
-                            if (StringUtil.isEmpty(msg)) {
-                                msg = "参数不能为空";
-                            }
-                            result.add(new ValidateResult(name, msg));
-                        }
-                    }
 
-                }
-            }
-        }
-        return result;
-    }
 
     /**
      * json-schema验证
@@ -932,51 +777,6 @@ public class ExcelUtil {
             }
         }
         return list;
-    }
-
-    public static byte[] getCellImageBytes(XSSFWorkbook workbook, Cell cell) {
-        if (cell.getCellType() == CellType.FORMULA && cell.getCellFormula().contains("DISPIMG")) {
-            Matcher matcher = dispimagPattern.matcher(cell.getCellFormula());
-            if (!matcher.find()) {
-                throw new RuntimeException("找不到ID");
-            }
-            String id = matcher.group(1);
-
-            try {
-                PackagePart cellimagesPart = workbook.getPackage().getParts().stream().filter(m -> m.getPartName().getName().equals("/xl/cellimages.xml")).findFirst().orElse(null);
-                if (cellimagesPart == null) {
-                    throw new RuntimeException("找不到图片");
-                }
-                XmlObject xmlObject = XmlObject.Factory.parse(cellimagesPart.getInputStream());
-                CellImages cellImages = XPathMapper.parse(xmlObject.xmlText(), CellImages.class);
-                PackagePart cellimagesRelsPart = workbook.getPackage().getParts().stream().filter(m -> m.getPartName().getName().equals("/xl/_rels/cellimages.xml.rels")).findFirst().orElse(null);
-                if (cellimagesRelsPart == null) {
-                    throw new RuntimeException("找不到图片");
-                }
-                XmlObject xmlObject2 = XmlObject.Factory.parse(cellimagesRelsPart.getInputStream());
-                CellImagesRels cellImagesRels = XPathMapper.parse(xmlObject2.xmlText(), CellImagesRels.class);
-                List<? extends PictureData> allPictures = workbook.getAllPictures();
-                String rId = cellImages.getCellImageList().stream().filter(m -> m.getId().equals(id)).map(m -> m.getRId()).findFirst().orElse(null);
-                if (rId == null) {
-                    throw new RuntimeException("找不到图片");
-                }
-                String target = cellImagesRels.getCellImageRelsList().stream().filter(m -> m.getRId().equals(rId)).map(m -> m.getTarget()).findFirst().orElse(null);
-                if (target == null) {
-                    throw new RuntimeException("找不到图片");
-                }
-                byte[] bytes = allPictures.stream().filter(m -> ((XSSFPictureData) m).getPackagePart().getPartName().getName().equals("/xl/" + target)).map(m -> ((XSSFPictureData) m).getData()).findFirst().orElse(null);
-                return bytes;
-
-            } catch (XmlException e) {
-                throw new RuntimeException(e);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (InvalidFormatException e) {
-                throw new RuntimeException(e);
-            }
-        } else {
-            throw new RuntimeException("非单元格图片");
-        }
     }
 
     /**
@@ -1279,38 +1079,12 @@ public class ExcelUtil {
                             continue;
                         }
                         //是否日期单元格
-                        boolean isDateCell = false;
+                        boolean isDateCell =  SheetUtil.isDateCell(cell);
                         String dateFormat = "yyyy-MM-dd HH:mm:ss";
                         try {
 
                             if (null != cell) {
-                                String str = null;
-                                CellType cellType = cell.getCellTypeEnum();
-                                //支持公式单元格
-                                if (cellType == CellType.FORMULA) {
-                                    cellType = cell.getCachedFormulaResultTypeEnum();
-                                }
-                                switch (cellType) {
-                                    case NUMERIC:
-                                        if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                                            isDateCell = true;
-                                            str = StringUtil.format(cell.getDateCellValue(), dateFormat);
-                                        } else {
-                                            BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
-                                            str = bd.stripTrailingZeros().toPlainString();
-                                        }
-                                        break;
-                                    case BOOLEAN:
-                                        str = String.valueOf(cell.getBooleanCellValue());
-                                        break;
-                                    case ERROR:
-                                        throw new RuntimeException("单元格为错误值");
-                                    case STRING:
-                                    default:
-                                        str = cell.getStringCellValue();
-                                        break;
-                                }
-
+                                String str =  SheetUtil.getCellStringValue(cell);
                                 Object value = null;
                                 if (isDateCell || columnInfo.getType() == ColumnType.DATETIME.getValue() || columnInfo.getType() == ColumnType.DATE.getValue()) {
                                     //特殊处理日期格式
@@ -1318,7 +1092,7 @@ public class ExcelUtil {
                                         value = StringUtil.parse(str, dateFormat, Date.class);
                                     }
                                 } else if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
-                                    value = getCellImageBytes((XSSFWorkbook) workbook, cell);
+                                    value = SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell);
                                 } else if (columnInfo.getType() == ColumnType.LONG.getValue()) {
                                     value = StringUtil.parse(str, Long.class);
                                 } else if (columnInfo.getType() == ColumnType.DOUBLE.getValue()) {
@@ -1343,12 +1117,12 @@ public class ExcelUtil {
                             result.getErrors().add(errorMessage);
                         }
                     }
-                    List<ValidateResult> validateResults = validate(obj, columnInfos);
-                    validate = isValidate(result, headMap, row, validate, validateResults, columnInfos);
+                    List<ValidateResult> validateResults = ValidateUtil.validate(obj, columnInfos);
+                    validate = ValidateUtil.isValidate(result, headMap, row, validate, validateResults, columnInfos);
 
                     if (customValidateFunc != null) {
                         List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
-                        validate = isValidate(result, headMap, row, validate, customValidateResults, columnInfos);
+                        validate = ValidateUtil.isValidate(result, headMap, row, validate, customValidateResults, columnInfos);
                     }
                     if (validate) {
                         list.put(row.getRowNum(), obj);
@@ -1399,6 +1173,9 @@ public class ExcelUtil {
         return result;
 
     }
+
+
+
 
 
 }

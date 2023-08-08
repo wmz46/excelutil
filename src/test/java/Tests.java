@@ -2,13 +2,13 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.iceolive.util.ExcelExportUtil;
+import com.iceolive.util.ExcelSingleUtil;
 import com.iceolive.util.ExcelUtil;
 import com.iceolive.util.ImageUtil;
 import com.iceolive.util.annotation.ExcelColumn;
 import com.iceolive.util.constants.ValidationConsts;
 import com.iceolive.util.enums.ColumnType;
-import com.iceolive.util.model.ColumnInfo;
-import com.iceolive.util.model.ImportResult;
+import com.iceolive.util.model.*;
 import lombok.Data;
 import org.junit.Test;
 
@@ -70,13 +70,13 @@ public class Tests {
         c1.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
                 add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
-                add(ColumnInfo.Rule.fromRange(1D,99D, "年龄必须是1到99"));
+                add(ColumnInfo.Rule.fromRange(1D, 99D, "年龄必须是1到99"));
             }
         });
         ColumnInfo c2 = new ColumnInfo("name", "姓名", null, ColumnType.STRING.getValue());
         c2.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c3 = new ColumnInfo("birth", "birth", null, ColumnType.DATETIME.getValue());
@@ -88,7 +88,7 @@ public class Tests {
         ColumnInfo c4 = new ColumnInfo("agree", "agree", null, ColumnType.STRING.getValue());
         c4.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c5 = new ColumnInfo("image", "图片", null, ColumnType.IMAGE.getValue());
@@ -100,7 +100,7 @@ public class Tests {
         ColumnInfo c6 = new ColumnInfo("image2", "图片2", null, ColumnType.IMAGES.getValue());
         c6.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         columnInfos.addAll(Arrays.asList(c1, c2, c3, c4, c5, c6));
@@ -118,16 +118,16 @@ public class Tests {
         ColumnInfo c1 = new ColumnInfo("age", null, "B", ColumnType.STRING.getValue());
         c1.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
-                add( ColumnInfo.Rule.fromRegExp("\\d+", "年龄必须是数字"));
-                add( ColumnInfo.Rule.fromRange(1,99, "年龄必须是1到99"));
-                add(ColumnInfo.Rule.fromEnums(Arrays.asList("4","5","99"),"年龄不在枚举范围"));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromRegExp("\\d+", "年龄必须是数字"));
+                add(ColumnInfo.Rule.fromRange("1", "99", "年龄必须是1到99"));
+                add(ColumnInfo.Rule.fromEnums(Arrays.asList("4", "5", "99"), "年龄不在枚举范围"));
             }
         });
         ColumnInfo c2 = new ColumnInfo("name", null, "A", ColumnType.STRING.getValue());
         c2.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
-                add( ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
+                add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
         ColumnInfo c3 = new ColumnInfo("birth", null, "C", ColumnType.DATETIME.getValue());
@@ -209,5 +209,21 @@ public class Tests {
         columnInfos.add(new ColumnInfo("images", "图片", "B", ColumnType.IMAGES.getValue()));
         ImportResult importResult = ExcelUtil.importExcel(filepath, columnInfos, true, 1);
         System.out.println(importResult);
+    }
+
+    @Test
+    public void test7() {
+        String filepath = System.getProperty("user.dir") + "//testdata//test2.xlsx";
+        List<FieldInfo> fieldInfos = new ArrayList<>();
+        FieldInfo fieldInfo = new FieldInfo("概况描述", "B13", ColumnType.STRING.getValue());
+        fieldInfo.setRules(new ArrayList<BaseInfo.Rule>(){{
+            add(BaseInfo.Rule.fromRegExp("^.{6}$","概况描述必须写6位"));
+        }});
+        fieldInfos.add(fieldInfo);
+        fieldInfos.add(new FieldInfo("产生原因","E13",ColumnType.STRING.getValue()));
+        fieldInfos.add(new FieldInfo("涉及人员","F13",ColumnType.STRING.getValue()));
+        fieldInfos.add(new FieldInfo("备注","G13",ColumnType.STRING.getValue()));
+        ImportSingleResult importSingleResult = ExcelSingleUtil.importExcel(filepath, fieldInfos);
+        System.out.println(importSingleResult);
     }
 }
