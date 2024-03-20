@@ -35,7 +35,8 @@ public enum ColumnType {
     /**
      * 多张图片
      */
-    IMAGES(6);
+    IMAGES(6),
+    TIME(7);
     private int value;
 
     ColumnType(int value) {

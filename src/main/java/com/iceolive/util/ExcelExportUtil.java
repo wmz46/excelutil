@@ -153,6 +153,9 @@ public class ExcelExportUtil {
                             case DATETIME:
                                 cell.setCellValue(StringUtil.format(value, "yyyy-MM-dd HH:mm:ss"));
                                 break;
+                            case TIME:
+                                cell.setCellValue(StringUtil.format(value,"HH:mm:ss"));
+                                break;
                             case STRING:
                             default:
                                 cell.setCellValue(String.valueOf(value));

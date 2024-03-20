@@ -18,6 +18,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.sql.Time;
 import java.util.*;
 
 public class ExcelSingleUtil {
@@ -66,6 +67,10 @@ public class ExcelSingleUtil {
                             //特殊处理日期格式
                             if (!StringUtil.isBlank(str)) {
                                 value = StringUtil.parse(str, dateFormat, Date.class);
+                            }
+                        } else if (fieldInfo.getType() == ColumnType.TIME.getValue()) {
+                            if (!StringUtil.isBlank(str)) {
+                                value = StringUtil.parse(str, dateFormat, Time.class);
                             }
                         } else if (fieldInfo.getType() == ColumnType.IMAGE.getValue()) {
                             value = SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell);

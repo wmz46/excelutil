@@ -17,7 +17,9 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.sql.Time;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
 public class Tests {
@@ -38,6 +40,9 @@ public class Tests {
         @JsonSerialize(using = LocalDateTimeSerializer.class)//如果使用json-schema验证，必须添加
         @JsonFormat(pattern = "yyyy-MM-dd")//如果使用json-schema验证，必须添加
         private LocalDateTime birth1;
+        @ExcelColumn("time")
+        @JsonFormat(pattern = "HH:mm:ss")
+        private LocalTime time;
 
         @ExcelColumn("图片")
         private BufferedImage image;
