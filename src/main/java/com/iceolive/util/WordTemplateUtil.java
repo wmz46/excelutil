@@ -1,17 +1,23 @@
 package com.iceolive.util;
 
-import jdk.nashorn.api.scripting.ScriptObjectMirror;
+
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
 import org.apache.xmlbeans.XmlException;
+import org.apache.xmlbeans.XmlObject;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 
+import javax.el.Expression;
+import javax.el.ExpressionFactory;
+import javax.el.StandardELContext;
+import javax.el.ValueExpression;
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -54,7 +60,7 @@ public class WordTemplateUtil {
         }
     }
 
-    public static void fillData(XWPFDocument document,  Map<String, Object> variables) {
+    public static void fillData(XWPFDocument document, Map<String, Object> variables) {
         try {
             format(document);
 
@@ -141,11 +147,32 @@ public class WordTemplateUtil {
                     }
                 }
             }
-            Iterator<XWPFParagraph> itPara = document.getParagraphsIterator();
-            while (itPara.hasNext()) {
-                XWPFParagraph paragraph = itPara.next();
+            //替换段落
+            for (int i = document.getParagraphs().size() - 1; i >= 0; i--) {
+                XWPFParagraph paragraph = document.getParagraphs().get(i);
+
+                XmlCursor cursor = paragraph.getCTP().newCursor();
+                cursor.selectPath("declare namespace w='http://schemas.openxmlformats.org/wordprocessingml/2006/main' .//*/w:txbxContent/w:p/w:r");
+                List<XmlObject> ctrsintxtbx = new ArrayList<XmlObject>();
+                while (cursor.hasNextSelection()) {
+                    cursor.toNextSelection();
+                    XmlObject obj = cursor.getObject();
+                    ctrsintxtbx.add(obj);
+                }
+                for (XmlObject obj : ctrsintxtbx) {
+                    CTR ctr = CTR.Factory.parse(obj.xmlText());
+                    //CTR ctr = CTR.Factory.parse(obj.newInputStream());
+                    XWPFRun run = new XWPFRun(ctr, (IRunBody) paragraph);
+                    replaceRun(run, variables);
+                    obj.set(run.getCTR());
+                }
+
+
                 replaceParagraph(paragraph, variables);
+
+
             }
+
             // 替换表格中的指定文字
             itTable = document.getTablesIterator();
             while (itTable.hasNext()) {
@@ -178,11 +205,33 @@ public class WordTemplateUtil {
         int length = runs.size();
         for (int i = length - 1; i >= 0; i--) {
             String text = runs.get(i).getText(runs.get(i).getTextPosition());
-            String newText = text.replace(listName + "[]", listName + "[" + num + "]");
-            runs.get(i).setText(newText, 0);
+            if (text != null) {
+                String newText = text.replace(listName + "[]", listName + "[" + num + "]");
+                runs.get(i).setText(newText, 0);
+            }
 
         }
     }
+
+    private static void replaceRun(XWPFRun run, Map<String, Object> variables) {
+        String text = run.getText(run.getTextPosition());
+        Matcher matcher = tplReg.matcher(text);
+        String value = text;
+        while (matcher.find()) {
+            try {
+                Object val = eval(matcher.group(1), variables);
+                String s = "";
+                if (val != null) {
+                    s = String.valueOf(val);
+                }
+                value = value.replace("${" + matcher.group(1) + "}", s);
+                run.setText(value, 0);
+            } catch (Exception e) {
+                log.error(e.toString());
+            }
+        }
+    }
+
 
     private static void replaceParagraph(XWPFParagraph paragraph, Map<String, Object> variables) {
         List<XWPFRun> runs = paragraph.getRuns();
@@ -198,22 +247,25 @@ public class WordTemplateUtil {
                     try {
                         Object val = eval(matcher.group(1), variables);
                         String s = "";
-                        if(val != null){
+                        if (val != null) {
                             s = String.valueOf(val);
                         }
                         value = value.replace("${" + matcher.group(1) + "}", s);
 
                         if (value.contains("\n")) {
+                            RunProps runProps = getRunProps(paragraph.getRuns().get(i));
                             paragraph.removeRun(i);
                             String[] arr = value.split("\n");
                             for (int j = arr.length - 1; j >= 0; j--) {
+                                XWPFRun run = paragraph.insertNewRun(i);
+                                setRunProps(run, runProps);
                                 if (j != 0) {
-                                    XWPFRun run = paragraph.insertNewRun(i);
-                                    run.addBreak();
-                                    run.setText(arr[j]);
-                                } else {
-                                    paragraph.insertNewRun(i).setText(arr[j]);
+                                    run.addBreak(BreakClear.ALL);
+                                    if(paragraph.getFirstLineIndent()!=0){
+                                        run.addTab();
+                                    }
                                 }
+                                run.setText(arr[j]);
                             }
                         } else {
                             runs.get(i).setText(value, 0);
@@ -272,6 +324,70 @@ public class WordTemplateUtil {
         }
     }
 
+    private static RunProps getRunProps(XWPFRun run) {
+        RunProps props = new RunProps();
+        props.setBold(run.isBold());
+        props.setColor(run.getColor());
+        props.setItalic(run.isItalic());
+        props.setUnderline(run.getUnderline());
+        props.setStrikeThrough(run.isStrikeThrough());
+        props.setDoubleStrikeThrough(run.isDoubleStrikeThrough());
+        props.setSmallCaps(run.isSmallCaps());
+        props.setCapitalized(run.isCapitalized());
+        props.setShadow(run.isShadowed());
+        props.setImprinted(run.isImprinted());
+        props.setEmbossed(run.isEmbossed());
+        props.setSubscript(run.getSubscript());
+        props.setKerning(run.getKerning());
+        props.setFontFamily(run.getFontFamily());
+        props.setFontSize(run.getFontSize());
+        props.setTextPosition(run.getTextPosition());
+        return props;
+    }
+
+    private static void setRunProps(XWPFRun run, RunProps props) {
+        run.setBold(props.isBold());
+        run.setColor(props.getColor());
+        run.setItalic(props.isItalic());
+        run.setUnderline(props.getUnderline());
+        run.setStrikeThrough(props.isStrikeThrough());
+        run.setDoubleStrikethrough(props.isDoubleStrikeThrough());
+        run.setSmallCaps(props.isSmallCaps());
+        run.setCapitalized(props.isCapitalized());
+        run.setShadow(props.isShadow());
+        run.setImprinted(props.isImprinted());
+        run.setEmbossed(props.isEmbossed());
+        run.setSubscript(props.getSubscript());
+        run.setKerning(props.getKerning());
+        run.setFontFamily(props.getFontFamily());
+        if (props.getFontSize() != -1) {
+            run.setFontSize(props.getFontSize());
+        }
+        run.setTextPosition(props.getTextPosition());
+    }
+
+    @Data
+    private static class RunProps {
+        private boolean bold;
+        private String color;
+        private boolean italic;
+        private UnderlinePatterns underline;
+        private boolean strikeThrough;
+        private boolean doubleStrikeThrough;
+        private boolean smallCaps;
+        private boolean capitalized;
+        private boolean shadow;
+        private boolean imprinted;
+        private boolean embossed;
+        private VerticalAlign subscript;
+        private int kerning;
+        private String fontFamily;
+        private int fontSize;
+        private int textPosition;
+
+    }
+
+
     private static XWPFRun addCloneRun(XWPFParagraph paragraph, XWPFRun run) {
         XWPFRun r = paragraph.createRun();
         r.setBold(run.isBold());
@@ -289,8 +405,9 @@ public class WordTemplateUtil {
         r.setSubscript(run.getSubscript());
         r.setKerning(run.getKerning());
         r.setFontFamily(run.getFontFamily());
-        r.setFontFamily(run.getFontFamily());
-        r.setFontSize(run.getFontSize());
+        if(run.getFontSize()!=-1) {
+            r.setFontSize(run.getFontSize());
+        }
         r.setTextPosition(run.getTextPosition());
         if (run.getCTR().getRPr() != null) {
             r.getCTR().setRPr(run.getCTR().getRPr());
@@ -352,7 +469,7 @@ public class WordTemplateUtil {
         p.setSpacingAfter(paragraph.getSpacingAfter());
         p.setSpacingAfterLines(paragraph.getSpacingAfterLines());
         p.setSpacingBefore(paragraph.getSpacingBefore());
-        p.setSpacingBeforeLines(paragraph.getSpacingAfterLines());
+        p.setSpacingBeforeLines(paragraph.getSpacingBeforeLines());
         p.setSpacingLineRule(paragraph.getSpacingLineRule());
         p.setSpacingBetween(paragraph.getSpacingBetween());
         p.setIndentationLeft(paragraph.getIndentationLeft());
@@ -468,7 +585,7 @@ public class WordTemplateUtil {
         if (ObjectUtils.notEqual(run1.getCTR().getRPr().toString(), run2.getCTR().getRPr().toString())) {
             return false;
         }
-        if(run1.getText(0)==null || run2.getText(0) == null){
+        if (run1.getText(0) == null || run2.getText(0) == null) {
             return false;
         }
         return true;
@@ -564,63 +681,16 @@ public class WordTemplateUtil {
     }
 
     public static Object eval(String cmd, Map<String, Object> variables) {
-        ScriptEngineManager manager = new ScriptEngineManager();
-        ScriptEngine js = manager.getEngineByName("JavaScript");
+        ExpressionFactory factory = ExpressionFactory.newInstance();
+        StandardELContext context = new StandardELContext(factory);
         if (variables != null) {
-            for (String key : variables.keySet()) {
-                js.put(key, variables.get(key));
+            for (Map.Entry<String, Object> entry : variables.entrySet()) {
+                context.getVariableMapper().setVariable(entry.getKey(), factory.createValueExpression(variables.get(entry.getKey()), Object.class));
             }
         }
-        try {
-            String func = cmd;
-            if (func.trim().startsWith("return")) {
-                func = "var _$result = function(){" + func + " }";
-            } else {
-                func = "var _$result = function(){return " + func + " }";
-            }
-            js.eval(func);
-            Invocable inv = (Invocable) js;
-            Object val = inv.invokeFunction("_$result");
-            if (val instanceof ScriptObjectMirror) {
-                val = toObject((ScriptObjectMirror) val);
-            }
-            if (val == null) {
-                log.debug("JS: " + cmd + " => null");
-            } else {
-                log.debug("JS: " + cmd + " => " + val.toString());
-            }
-            return val;
-        } catch (ScriptException | NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
+        ValueExpression expression = factory.createValueExpression(context, "${" + cmd + "}", Object.class);
+        return expression.getValue(context);
     }
 
-    private static Object toObject(ScriptObjectMirror mirror) {
-        if (mirror.isEmpty()) {
-            return null;
-        }
-        if (mirror.isArray()) {
-            List<Object> list = new ArrayList<>();
-            for (Map.Entry<String, Object> entry : mirror.entrySet()) {
-                Object result = entry.getValue();
-                if (result instanceof ScriptObjectMirror) {
-                    list.add(toObject((ScriptObjectMirror) result));
-                } else {
-                    list.add(result);
-                }
-            }
-            return list;
-        }
 
-        Map<String, Object> map = new HashMap<>();
-        for (Map.Entry<String, Object> entry : mirror.entrySet()) {
-            Object result = entry.getValue();
-            if (result instanceof ScriptObjectMirror) {
-                map.put(entry.getKey(), toObject((ScriptObjectMirror) result));
-            } else {
-                map.put(entry.getKey(), result);
-            }
-        }
-        return map;
-    }
 }

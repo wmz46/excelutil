@@ -1,15 +1,13 @@
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
-import com.iceolive.util.ExcelExportUtil;
-import com.iceolive.util.ExcelSingleUtil;
-import com.iceolive.util.ExcelUtil;
-import com.iceolive.util.ImageUtil;
+import com.iceolive.util.*;
 import com.iceolive.util.annotation.ExcelColumn;
 import com.iceolive.util.constants.ValidationConsts;
 import com.iceolive.util.enums.ColumnType;
 import com.iceolive.util.model.*;
 import lombok.Data;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.Test;
 
 import javax.imageio.ImageIO;
@@ -230,5 +228,26 @@ public class Tests {
         fieldInfos.add(new FieldInfo("备注","G13",ColumnType.STRING.getValue()));
         ImportSingleResult importSingleResult = ExcelSingleUtil.importExcel(filepath, fieldInfos);
         System.out.println(importSingleResult);
+    }
+    @Test
+    public void test8(){
+        String filepath = System.getProperty("user.dir") + "//testdata//wordtpl.docx";
+        Map<String,Object> map = new HashMap<>();
+        List<Map<String,Object>> list =new ArrayList<>();
+        list.add(new HashMap<String,Object>(){{
+            put("name","语文");
+            put("score","99");
+        }});
+        list.add(new HashMap<String,Object>(){{
+            put("name","数学");
+            put("score","100");
+        }});
+        map.put("name","张三");
+        map.put("age","20");
+        map.put("desc","换行\n换行\n换行");
+        map.put("course",list);
+        XWPFDocument doc = WordTemplateUtil.load(filepath);
+        WordTemplateUtil.fillData(doc,map);
+        WordTemplateUtil.save(doc,System.getProperty("user.dir")+"//testdata//result.docx");
     }
 }
