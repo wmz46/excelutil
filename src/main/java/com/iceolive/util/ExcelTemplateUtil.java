@@ -1,6 +1,5 @@
 package com.iceolive.util;
 
-import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellCopyPolicy;
@@ -9,13 +8,10 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import javax.script.Invocable;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
+import javax.el.ExpressionFactory;
+import javax.el.StandardELContext;
+import javax.el.ValueExpression;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -59,66 +55,16 @@ public class ExcelTemplateUtil {
             throw new RuntimeException("写入文件异常", e);
         }
     }
-
     public static Object eval(String cmd, Map<String, Object> variables) {
-        ScriptEngineManager manager = new ScriptEngineManager();
-        ScriptEngine js = manager.getEngineByName("JavaScript");
+        ExpressionFactory factory = ExpressionFactory.newInstance();
+        StandardELContext context = new StandardELContext(factory);
         if (variables != null) {
-            for (String key : variables.keySet()) {
-                js.put(key, variables.get(key));
+            for (Map.Entry<String, Object> entry : variables.entrySet()) {
+                context.getVariableMapper().setVariable(entry.getKey(), factory.createValueExpression(variables.get(entry.getKey()), Object.class));
             }
         }
-        try {
-            String func = cmd;
-            if (func.trim().startsWith("return")) {
-                func = "var _$result = function(){" + func + " }";
-            } else {
-                func = "var _$result = function(){return " + func + " }";
-            }
-            js.eval(func);
-            Invocable inv = (Invocable) js;
-            Object val = inv.invokeFunction("_$result");
-            if (val instanceof ScriptObjectMirror) {
-                val = toObject((ScriptObjectMirror) val);
-            }
-            if (val == null) {
-                log.debug("JS: " + cmd + " => null");
-            } else {
-                log.debug("JS: " + cmd + " => " + val.toString());
-            }
-            return val;
-        } catch (ScriptException | NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static Object toObject(ScriptObjectMirror mirror) {
-        if (mirror.isEmpty()) {
-            return null;
-        }
-        if (mirror.isArray()) {
-            List<Object> list = new ArrayList<>();
-            for (Map.Entry<String, Object> entry : mirror.entrySet()) {
-                Object result = entry.getValue();
-                if (result instanceof ScriptObjectMirror) {
-                    list.add(toObject((ScriptObjectMirror) result));
-                } else {
-                    list.add(result);
-                }
-            }
-            return list;
-        }
-
-        Map<String, Object> map = new HashMap<>();
-        for (Map.Entry<String, Object> entry : mirror.entrySet()) {
-            Object result = entry.getValue();
-            if (result instanceof ScriptObjectMirror) {
-                map.put(entry.getKey(), toObject((ScriptObjectMirror) result));
-            } else {
-                map.put(entry.getKey(), result);
-            }
-        }
-        return map;
+        ValueExpression expression = factory.createValueExpression(context, "${" + cmd + "}", Object.class);
+        return expression.getValue(context);
     }
 
     public static void fillData(XSSFWorkbook workbook, Map<String, Object> variables ) {
