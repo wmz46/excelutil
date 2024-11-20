@@ -75,6 +75,8 @@ public class SheetUtil {
                     str = cell.getStringCellValue();
                     break;
             }
+            //过滤零宽字符
+            str = ZeroWidthCharUtil.filterZeroWidthChars(str);
             return str;
         }
         return null;
