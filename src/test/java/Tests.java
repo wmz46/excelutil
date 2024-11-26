@@ -250,4 +250,30 @@ public class Tests {
         WordTemplateUtil.fillData(doc,map);
         WordTemplateUtil.save(doc,System.getProperty("user.dir")+"//testdata//result.docx");
     }
+    @Test
+    public void test9() throws IOException {
+
+        String filepath = System.getProperty("user.dir") + "//testdata//tpl.xlsx";
+        FileInputStream fileInputStream = new FileInputStream(filepath);
+        List<ColumnInfo> columnInfos = new ArrayList<>();
+        columnInfos.add(new ColumnInfo("title", "标题", "A", ColumnType.STRING.getValue()));
+        columnInfos.add(new ColumnInfo("images", "图片", "B", ColumnType.IMAGES.getValue()));
+        ColumnInfo c3 = new ColumnInfo("enums", "枚举", "C", ColumnType.STRING.getValue());
+        c3.setRules(new ArrayList<BaseInfo.Rule>(){{
+            add(BaseInfo.Rule.fromEnums(Arrays.asList("澄海区","金平区","龙湖区"),"枚举值错误"));
+        }});
+        columnInfos.add(c3);
+        ColumnInfo c4 = new ColumnInfo("range", "范围", "D", ColumnType.LONG.getValue());
+        c4.setRules(new ArrayList<BaseInfo.Rule>(){{
+            add(BaseInfo.Rule.fromRange(1,5,"范围错误"));
+        }});
+        columnInfos.add(c4);
+
+        byte[] bytes = ExcelExportUtil.setDataValidationRules(fileInputStream, columnInfos, 1);
+        String outputFile = System.getProperty("user.dir") + "//testdata//result.xlsx";
+        FileOutputStream fos = new FileOutputStream(outputFile);
+        fos.write(bytes);
+        fos.close();
+        System.out.println(outputFile);
+    }
 }

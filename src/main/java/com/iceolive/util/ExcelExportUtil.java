@@ -1,10 +1,14 @@
 package com.iceolive.util;
 
 import com.iceolive.util.enums.ColumnType;
+import com.iceolive.util.enums.RuleType;
+import com.iceolive.util.model.BaseInfo;
 import com.iceolive.util.model.ColumnInfo;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFClientAnchor;
+import org.apache.poi.xssf.usermodel.XSSFDataValidationConstraint;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.awt.image.BufferedImage;
@@ -14,6 +18,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.poi.util.Units;
 
@@ -154,7 +159,7 @@ public class ExcelExportUtil {
                                 cell.setCellValue(StringUtil.format(value, "yyyy-MM-dd HH:mm:ss"));
                                 break;
                             case TIME:
-                                cell.setCellValue(StringUtil.format(value,"HH:mm:ss"));
+                                cell.setCellValue(StringUtil.format(value, "HH:mm:ss"));
                                 break;
                             case STRING:
                             default:
@@ -208,4 +213,78 @@ public class ExcelExportUtil {
         }
         return scaleFactor;
     }
+
+    /**
+     * 设置excel单元格有效性
+     * @param inputStream excel模板流
+     * @param columnInfos 列信息
+     * @param startRow 开始行，从0开始
+     * @return 返回新的excel字节数组
+     */
+    public static byte[] setDataValidationRules(
+            InputStream inputStream,
+            List<ColumnInfo> columnInfos,
+            int startRow
+    ) {
+        try {
+            Workbook workbook = new XSSFWorkbook(inputStream);
+            Sheet sheet = workbook.getSheetAt(0);
+            int sheetIndex = workbook.getNumberOfSheets();
+            String hiddenSheetName = "_hiddenSheet";
+            Sheet hiddenSheet = workbook.createSheet(hiddenSheetName);
+            workbook.setSheetHidden(sheetIndex,true);
+
+            for (ColumnInfo columnInfo : columnInfos) {
+                if (StringUtil.isNotEmpty(columnInfo.getColString())) {
+                    int c = CellReference.convertColStringToIndex(columnInfo.getColString());
+                    if (columnInfo.getRules() == null) {
+                        continue;
+                    }
+                    for (BaseInfo.Rule rule : columnInfo.getRules().stream().filter(m -> m.getType() == RuleType.ENUMS || m.getType() == RuleType.RANGE).collect(Collectors.toList())) {
+                        DataValidationHelper dvHelper = sheet.getDataValidationHelper();
+                        DataValidationConstraint dvConstraint;
+                        if (rule.getType() == RuleType.RANGE) {
+                            dvConstraint = dvHelper.createIntegerConstraint(DataValidationConstraint.OperatorType.BETWEEN, rule.getMin().toString(), rule.getMax().toString());
+                        } else {
+                            for (int i = 0; i < rule.getEnumValues().size(); i++) {
+                                String enumValue = rule.getEnumValues().get(i);
+                                Row row = hiddenSheet.getRow(i);
+                                if (row == null) {
+                                    row = hiddenSheet.createRow(i);
+                                }
+                                Cell cell = row.getCell(c);
+                                if (cell == null) {
+                                    cell = row.createCell(c);
+                                }
+                                cell.setCellValue(enumValue);
+                            }
+                            String strFormula = hiddenSheetName + "!$" + columnInfo.getColString() + "$1:$" + columnInfo.getColString() + "$" + rule.getEnumValues().size();
+                            dvConstraint = new XSSFDataValidationConstraint(DataValidationConstraint.ValidationType.LIST, strFormula);
+                        }
+                        // 设置数据有效性在哪个区域
+                        CellRangeAddressList addressList = new CellRangeAddressList(startRow, 65535, c , c );
+                        // 创建数据有效性对象
+                        DataValidation dataValidation = dvHelper.createValidation(dvConstraint, addressList);
+
+                        dataValidation.setShowErrorBox(true);
+                        if (StringUtil.isBlank(rule.getMessage())) {
+                            dataValidation.createErrorBox("错误", "您输入的值不是有效值");
+                        } else {
+                            dataValidation.createErrorBox("错误", rule.getMessage());
+                        }
+                        // 将数据有效性应用到工作表
+                        sheet.addValidationData(dataValidation);
+                    }
+                }
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            workbook.write(baos);
+            byte[] bytes = baos.toByteArray();
+            baos.close();
+            return bytes;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
