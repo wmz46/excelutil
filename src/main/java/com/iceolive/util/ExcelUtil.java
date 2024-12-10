@@ -342,24 +342,24 @@ public class ExcelUtil {
                         Cell cell = row.getCell(c);
                         List<Field> fields = headMap.get(c);
                         //是否日期单元格
-                        boolean isDateCell =  SheetUtil.isDateCell(cell);
+                        boolean isDateCell = SheetUtil.isDateCell(cell);
                         String dateFormat = "yyyy-MM-dd HH:mm:ss";
                         try {
                             if (null != cell) {
                                 String str = SheetUtil.getCellStringValue(cell);
                                 for (Field field : fields) {
                                     Object value = null;
-                                    if (isDateCell &&( field.getType().isAssignableFrom(Date.class) || field.getType().isAssignableFrom(LocalDateTime.class) || field.getType().isAssignableFrom(LocalDate.class))) {
+                                    if (isDateCell && (field.getType().isAssignableFrom(Date.class) || field.getType().isAssignableFrom(LocalDateTime.class) || field.getType().isAssignableFrom(LocalDate.class))) {
                                         //特殊处理日期格式
                                         if (!StringUtil.isBlank(str)) {
                                             value = StringUtil.parse(str, dateFormat, field.getType());
                                         }
-                                    }else if ( isDateCell &&(field.getType().isAssignableFrom(LocalTime.class) || field.getType().isAssignableFrom(Time.class))) {
+                                    } else if (isDateCell && (field.getType().isAssignableFrom(LocalTime.class) || field.getType().isAssignableFrom(Time.class))) {
                                         //特殊处理日期格式
                                         if (!StringUtil.isBlank(str)) {
                                             value = StringUtil.parse(str, dateFormat, field.getType());
                                         }
-                                    }  else if (field.getType().isAssignableFrom(boolean.class) || field.getType().isAssignableFrom(Boolean.class)) {
+                                    } else if (field.getType().isAssignableFrom(boolean.class) || field.getType().isAssignableFrom(Boolean.class)) {
                                         ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
                                         value = StringUtil.parseBoolean(str, excelColumn.trueString(), excelColumn.falseString(), field.getType());
                                     } else if (field.getType().isArray() && field.getType().getComponentType().equals(byte.class)) {
@@ -587,7 +587,6 @@ public class ExcelUtil {
     }
 
 
-
     /**
      * 根据注解验证对象
      *
@@ -611,7 +610,6 @@ public class ExcelUtil {
         }
         return result;
     }
-
 
 
     /**
@@ -1068,41 +1066,48 @@ public class ExcelUtil {
             } else {
                 totalCount++;
                 if (null != row) {
+                    boolean isEmptyRow = true;
                     Map<String, Object> obj = new HashMap<>();
                     boolean validate = true;
                     for (Integer c : headMap.keySet()) {
-                        Cell cell = row.getCell(c);
                         ColumnInfo columnInfo = headMap.get(c);
                         //处理图片
                         if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
                             List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
                             if (!CollectionUtils.isEmpty(floatImages)) {
                                 obj.put(columnInfo.getName(), floatImages.get(0));
+                                isEmptyRow = false;
                             }
                             continue;
                         } else if (columnInfo.getType() == ColumnType.IMAGES.getValue()) {
                             List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
                             obj.put(columnInfo.getName(), floatImages);
+                            if (!CollectionUtils.isEmpty(floatImages)) {
+                                isEmptyRow = false;
+                            }
                             continue;
                         }
+                        Cell cell = row.getCell(c);
                         //是否日期单元格
-                        boolean isDateCell =  SheetUtil.isDateCell(cell);
+                        boolean isDateCell = SheetUtil.isDateCell(cell);
                         String dateFormat = "yyyy-MM-dd HH:mm:ss";
                         try {
-
                             if (null != cell) {
-                                String str =  SheetUtil.getCellStringValue(cell);
+                                String str = SheetUtil.getCellStringValue(cell);
+                                if (!StringUtil.isBlank(str)) {
+                                    isEmptyRow = false;
+                                }
                                 Object value = null;
-                                if (isDateCell && ( columnInfo.getType() == ColumnType.DATETIME.getValue() || columnInfo.getType() == ColumnType.DATE.getValue())) {
+                                if (isDateCell && (columnInfo.getType() == ColumnType.DATETIME.getValue() || columnInfo.getType() == ColumnType.DATE.getValue())) {
                                     //特殊处理日期格式
                                     if (!StringUtil.isBlank(str)) {
                                         value = StringUtil.parse(str, dateFormat, Date.class);
                                     }
-                                }else if (isDateCell && columnInfo.getType() == ColumnType.TIME.getValue()) {
+                                } else if (isDateCell && columnInfo.getType() == ColumnType.TIME.getValue()) {
                                     if (!StringUtil.isBlank(str)) {
                                         value = StringUtil.parse(str, dateFormat, Time.class);
                                     }
-                                }  else if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
+                                } else if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
                                     value = SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell);
                                 } else if (columnInfo.getType() == ColumnType.LONG.getValue()) {
                                     value = StringUtil.parse(str, Long.class);
@@ -1127,6 +1132,11 @@ public class ExcelUtil {
                             }
                             result.getErrors().add(errorMessage);
                         }
+                    }
+                    if (isEmptyRow) {
+                        //空行时总数-1，且不校验
+                        totalCount--;
+                        continue;
                     }
                     List<ValidateResult> validateResults = ValidateUtil.validate(obj, columnInfos);
                     validate = ValidateUtil.isValidate(result, headMap, row, validate, validateResults, columnInfos);
@@ -1184,9 +1194,6 @@ public class ExcelUtil {
         return result;
 
     }
-
-
-
 
 
 }
