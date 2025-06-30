@@ -4,7 +4,7 @@
 
     <groupId>com.iceolive</groupId>
     <artifactId>excelutil</artifactId>
-    <version>1.2.2</version>
+    <version>1.2.3</version>
     <description>基于java的excle工具类</description>
     <licenses>
         <license>
