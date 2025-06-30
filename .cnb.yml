@@ -8,6 +8,7 @@ $:
         - https://cnb.cool/iceolive/private-config/-/blob/main/smtp.yml
         - https://cnb.cool/iceolive/private-config/-/blob/main/ossrh.yml
       stages:
+        - gpg --version
         - echo ${OSSRH_PRV} >> private.key
         - cat private.key
 #        - mvn clean deploy -s ./settings.xml
