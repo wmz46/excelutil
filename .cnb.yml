@@ -10,7 +10,7 @@ $:
       stages:
         - gpg --version
         - echo ${OSSRH_PRV} >> private.key
-        - gpg --import private.key
+        - gpg --import private.key --passphrase ${OSSRH_PASSPHRASE}
         - mvn clean deploy -s ./settings.xml  -Dgpg.passphrase=${OSSRH_PASSPHRASE}
         - name: notify
           image: drillster/drone-email
