@@ -10,18 +10,18 @@ $:
       stages:
         - gpg --version
         - echo ${OSSRH_PRV} >> private.key
-        - cat private.key
-#        - mvn clean deploy -s ./settings.xml
-#        - name: notify
-#          image: drillster/drone-email
-#          settings:
-#            host: $smtp_host
-#            username: $smtp_username
-#            password: $smtp_password
-#            from: $smtp_from
-#            recipients: $smtp_recipients
-#            subject: 成功发布${CNB_REPO_NAME_LOWERCASE}@${CNB_BRANCH}
-#            body: 成功发布${CNB_REPO_NAME_LOWERCASE}@${CNB_BRANCH}
+        - gpg --import private.key
+        - mvn clean deploy -s ./settings.xml  -Dgpg.passphrase=${OSSRH_PASSPHRASE}
+        - name: notify
+          image: drillster/drone-email
+          settings:
+            host: $smtp_host
+            username: $smtp_username
+            password: $smtp_password
+            from: $smtp_from
+            recipients: $smtp_recipients
+            subject: 成功发布${CNB_REPO_NAME_LOWERCASE}@${CNB_BRANCH}
+            body: 成功发布${CNB_REPO_NAME_LOWERCASE}@${CNB_BRANCH}
       failStages:
         - name: notify
           image: drillster/drone-email
