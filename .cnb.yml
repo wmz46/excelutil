@@ -1,5 +1,10 @@
 $:
   push:
+    - imports: https://cnb.cool/iceolive/private-config/-/blob/main/github.yml
+      stages:
+        - git push --progress https://${GITHUB_TOKEN}@github.com/wmz46/${CNB_REPO_NAME_LOWERCASE} HEAD:${CNB_BRANCH}
+        - git push --tags https://${GITHUB_TOKEN}@github.com/wmz46/${CNB_REPO_NAME_LOWERCASE}
+  tag_push:
     - docker:
         image: maven:3.8.6-openjdk-8
         volumes:
