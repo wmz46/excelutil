@@ -10,7 +10,7 @@ $:
       stages:
         - gpg --version
         - echo ${OSSRH_PRV} >> private.key
-        - gpg --passphrase ${OSSRH_PASSPHRASE} --import private.key
+        - gpg --passphrase ${OSSRH_PASSPHRASE} --pinentry-mode loopback --import private.key
         - gpg --list-secret-keys --keyid-format=long
         - mvn clean deploy -s ./settings.xml  -Dgpg.passphrase=${OSSRH_PASSPHRASE} -Dgpg.keyname=${OSSRH_SEC_KEY}
         - name: notify
