@@ -38,4 +38,4 @@ $:
             from: $smtp_from
             recipients: $smtp_recipients
             subject: 发布${CNB_REPO_NAME_LOWERCASE}@${CNB_BRANCH}失败
-            body: 发布${CNB_REPO_NAME_LOWERCASE}@${CNB_BRANCH}失败 <br> ${CNB_BUILD_FAILED_MSG} <br> ${CNB_BUILD_WEB_URL}
+            body: 发布${CNB_REPO_NAME_LOWERCASE}@${CNB_BRANCH}失败 <br> ${CNB_BUILD_FAILED_STAGE_NAME} <br> ${CNB_BUILD_FAILED_MSG} <br> ${CNB_BUILD_WEB_URL}
