@@ -4,29 +4,21 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iceolive.util.annotation.ExcelColumn;
-import com.iceolive.util.constants.ValidationConsts;
 import com.iceolive.util.enums.ColumnType;
-import com.iceolive.util.enums.RuleType;
 import com.iceolive.util.exception.ImageOutOfBoundsException;
 import com.iceolive.util.model.*;
-import com.iceolive.xpathmapper.XPathMapper;
 import com.monitorjbl.xlsx.StreamingReader;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersionDetector;
 import com.networknt.schema.ValidationMessage;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.builder.CompareToBuilder;
-import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
-import org.apache.poi.openxml4j.opc.PackagePart;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.*;
-import org.apache.xmlbeans.XmlException;
-import org.apache.xmlbeans.XmlObject;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.Valid;
@@ -40,18 +32,19 @@ import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * @author wangmianzhe
  */
+@Slf4j
 @SuppressWarnings("unchecked")
 public class ExcelUtil {
 
@@ -78,10 +71,11 @@ public class ExcelUtil {
      * @param filepath      excel文件路径
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
-    public static <T> ImportResult importExcel(
+    @Deprecated
+    public static <T> ImportResult<T> importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant) {
         return importExcel(filepath, clazz, faultTolerant, 1, null, null);
@@ -95,10 +89,11 @@ public class ExcelUtil {
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
-    public static <T> ImportResult importExcel(
+    @Deprecated
+    public static <T> ImportResult<T> importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant, int startRow) {
         return importExcel(filepath, clazz, faultTolerant, startRow, null, null);
@@ -112,10 +107,11 @@ public class ExcelUtil {
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
-    public static <T> ImportResult importExcel(
+    @Deprecated
+    public static <T> ImportResult<T> importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant,
             Function<T, Boolean> importFunc) {
@@ -131,10 +127,11 @@ public class ExcelUtil {
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
-    public static <T> ImportResult importExcel(
+    @Deprecated
+    public static <T> ImportResult<T> importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant, int startRow,
             Function<T, Boolean> importFunc) {
@@ -149,11 +146,11 @@ public class ExcelUtil {
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
-
-    public static <T> ImportResult importExcel(
+    @Deprecated
+    public static <T> ImportResult<T> importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant,
             Function<T, List<ValidateResult>> customValidateFunc,
@@ -174,7 +171,8 @@ public class ExcelUtil {
      * @param <T>                中间类
      * @return 返回导入结果
      */
-    public static <T> ImportResult importExcel(
+    @Deprecated
+    public static <T> ImportResult<T> importExcel(
             String filepath, Class<T> clazz,
             boolean faultTolerant,
             int startRow,
@@ -195,9 +193,10 @@ public class ExcelUtil {
      * @param inputStream   excel文件的字节数组
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
+    @Deprecated
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant) {
@@ -211,9 +210,10 @@ public class ExcelUtil {
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
+    @Deprecated
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant, int startRow) {
@@ -227,9 +227,10 @@ public class ExcelUtil {
      * @param clazz         中间类类型
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
+    @Deprecated
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant,
@@ -245,10 +246,10 @@ public class ExcelUtil {
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
-
+    @Deprecated
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant, int startRow,
@@ -264,9 +265,10 @@ public class ExcelUtil {
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入结果
      */
+    @Deprecated
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant,
@@ -287,15 +289,44 @@ public class ExcelUtil {
      * @param <T>                中间类
      * @return 返回导入结果
      */
+    @Deprecated
     public static <T> ImportResult<T> importExcel(
             InputStream inputStream, Class<T> clazz,
             boolean faultTolerant,
             int startRow,
             Function<T, List<ValidateResult>> customValidateFunc,
             Function<T, Boolean> importFunc) {
-        ImportResult<T> result = new ImportResult<T>();
+        return importExcel(ExcelImportConfig.<T>builder()
+                .inputStream(inputStream)
+                .clazz(clazz)
+                .faultTolerant(faultTolerant)
+                .startRow(startRow)
+                .customValidateFunc(customValidateFunc)
+                .importFunc(importFunc)
+                .build());
+
+    }
+
+    public static <T> ImportResult<T> importExcel(ExcelImportConfig<T> config) {
+
+        Class<T> clazz = config.getClazz();
+        InputStream inputStream = config.getInputStream();
+        if (inputStream == null && StringUtil.isNotBlank(config.getFilepath())) {
+            try {
+                inputStream = Files.newInputStream(Paths.get(config.getFilepath()));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        assert inputStream != null;
+
+        int startRow = config.getStartRow();
+        Function<T, List<ValidateResult>> customValidateFunc = config.getCustomValidateFunc();
+        boolean faultTolerant = config.isFaultTolerant();
+        Function<T, Boolean> importFunc = config.getImportFunc();
+        ImportResult<T> result = new ImportResult<>();
         result.setErrors(new ArrayList<>());
-        Workbook workbook = null;
+        Workbook workbook;
         try {
             if (hasCellImageField(clazz)) {
                 //如果有图片字段，则不使用StreamingWorkbook
@@ -318,126 +349,153 @@ public class ExcelUtil {
         }
         Sheet sheet = workbook.getSheetAt(0);
         //列序号和字段的map
-        Map<Integer, List<Field>> headMap = null;
+        Map<Integer, List<Field>> headMap = new HashMap<>();
+        if (config.isOnlyData()) {
+            for (Field field : clazz.getDeclaredFields()) {
+                ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
+                if (excelColumn != null) {
+                    if (StringUtil.isNotBlank(excelColumn.colString())) {
+                        int i = CellReference.convertColStringToIndex(excelColumn.colString());
+                        if (headMap.containsKey(i)) {
+                            headMap.get(i).add(field);
+                        } else {
+                            headMap.put(i, new ArrayList<Field>() {{
+                                add(field);
+                            }});
+                        }
+                    } else {
+                        throw new RuntimeException("当onlyData=true时，@ExcelColumn必须设置colString");
+                    }
+                }
+            }
+        }
         Map<Integer, T> list = new LinkedHashMap<>();
         int totalCount = 0;
         int titleRowNum = startRow - 1;
         for (Row row : sheet) {
             if (row.getRowNum() < titleRowNum) {
                 //小于标题行的抛弃
-            } else if (row.getRowNum() == titleRowNum) {
+            } else if (row.getRowNum() == titleRowNum && !config.isOnlyData()) {
                 headMap = getHeadMap(clazz, row);
 
             } else {
                 totalCount++;
-                if (null != row) {
-                    T obj = null;
+                boolean isEmptyRow = true;
+                T obj;
+                try {
+                    obj = clazz.newInstance();
+                } catch (IllegalAccessException | InstantiationException e) {
+                    throw new RuntimeException(e);
+                }
+                boolean validate = true;
+                for (Integer c : headMap.keySet()) {
+                    Cell cell = row.getCell(c);
+                    List<Field> fields = headMap.get(c);
+                    //是否日期单元格
+                    boolean isDateCell = SheetUtil.isDateCell(cell);
+                    String dateFormat = "yyyy-MM-dd HH:mm:ss";
                     try {
-                        obj = clazz.newInstance();
-                    } catch (IllegalAccessException | InstantiationException e) {
-                        throw new RuntimeException(e);
-                    }
-                    boolean validate = true;
-                    for (Integer c : headMap.keySet()) {
-                        Cell cell = row.getCell(c);
-                        List<Field> fields = headMap.get(c);
-                        //是否日期单元格
-                        boolean isDateCell = SheetUtil.isDateCell(cell);
-                        String dateFormat = "yyyy-MM-dd HH:mm:ss";
-                        try {
-                            if (null != cell) {
-                                String str = SheetUtil.getCellStringValue(cell);
-                                for (Field field : fields) {
-                                    Object value = null;
-                                    if (isDateCell && (field.getType().isAssignableFrom(Date.class) || field.getType().isAssignableFrom(LocalDateTime.class) || field.getType().isAssignableFrom(LocalDate.class))) {
-                                        //特殊处理日期格式
-                                        if (!StringUtil.isBlank(str)) {
-                                            value = StringUtil.parse(str, dateFormat, field.getType());
-                                        }
-                                    } else if (isDateCell && (field.getType().isAssignableFrom(LocalTime.class) || field.getType().isAssignableFrom(Time.class))) {
-                                        //特殊处理日期格式
-                                        if (!StringUtil.isBlank(str)) {
-                                            value = StringUtil.parse(str, dateFormat, field.getType());
-                                        }
-                                    } else if (field.getType().isAssignableFrom(boolean.class) || field.getType().isAssignableFrom(Boolean.class)) {
-                                        ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
-                                        value = StringUtil.parseBoolean(str, excelColumn.trueString(), excelColumn.falseString(), field.getType());
-                                    } else if (field.getType().isArray() && field.getType().getComponentType().equals(byte.class)) {
-                                        value = SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell);
-                                    } else if (field.getType().isAssignableFrom(BufferedImage.class)) {
-                                        value = ImageUtil.Bytes2Image(SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell));
-                                    } else {
-                                        value = StringUtil.parse(str, field.getType());
+                        if (null != cell) {
+                            String str = SheetUtil.getCellStringValue(cell);
+                            if (!StringUtil.isBlank(str)) {
+                                isEmptyRow = false;
+                            }
+                            for (Field field : fields) {
+                                Object value = null;
+                                if (isDateCell && (field.getType().isAssignableFrom(Date.class) || field.getType().isAssignableFrom(LocalDateTime.class) || field.getType().isAssignableFrom(LocalDate.class))) {
+                                    //特殊处理日期格式
+                                    if (!StringUtil.isBlank(str)) {
+                                        value = StringUtil.parse(str, dateFormat, field.getType());
                                     }
-
-                                    field.setAccessible(true);
-                                    field.set(obj, value);
+                                } else if (isDateCell && (field.getType().isAssignableFrom(LocalTime.class) || field.getType().isAssignableFrom(Time.class))) {
+                                    //特殊处理日期格式
+                                    if (!StringUtil.isBlank(str)) {
+                                        value = StringUtil.parse(str, dateFormat, field.getType());
+                                    }
+                                } else if (field.getType().isAssignableFrom(boolean.class) || field.getType().isAssignableFrom(Boolean.class)) {
+                                    ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
+                                    assert excelColumn != null;
+                                    value = StringUtil.parseBoolean(str, excelColumn.trueString(), excelColumn.falseString(), field.getType());
+                                } else if (field.getType().isArray() && field.getType().getComponentType().equals(byte.class)) {
+                                    value = SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell);
+                                } else if (field.getType().isAssignableFrom(BufferedImage.class)) {
+                                    value = ImageUtil.Bytes2Image(SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell));
+                                } else {
+                                    value = StringUtil.parse(str, field.getType());
                                 }
 
-                            } else {
-                                //单元格为null，处理图片
-                                for (Field field : fields) {
-                                    Object value = null;
-                                    if (field.getType().isArray() && field.getType().getComponentType().equals(byte.class)) {
-                                        List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
-                                        if (!CollectionUtils.isEmpty(floatImages)) {
-                                            value = floatImages.get(0);
-                                        }
-                                    } else if (field.getType().isAssignableFrom(BufferedImage.class)) {
-                                        List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
-                                        if (!CollectionUtils.isEmpty(floatImages)) {
-                                            value = ImageUtil.Bytes2Image(floatImages.get(0));
+                                field.setAccessible(true);
+                                field.set(obj, value);
+                            }
 
-                                        }
-                                    } else if (field.getType().isAssignableFrom(List.class)) {
-                                        ParameterizedType genericType = (ParameterizedType) field.getGenericType();
-                                        if (genericType.getActualTypeArguments()[0] == BufferedImage.class) {
-                                            List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
-                                            value = new ArrayList<>();
-                                            for (byte[] floatImage : floatImages) {
-                                                ((List) value).add(ImageUtil.Bytes2Image(floatImage));
-                                            }
-                                        } else if (genericType.getActualTypeArguments()[0] == byte[].class) {
-                                            List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
-                                            value = floatImages;
-                                        }
+                        } else {
+                            //单元格为null，处理图片
+                            for (Field field : fields) {
+                                Object value = null;
+                                if (field.getType().isArray() && field.getType().getComponentType().equals(byte.class)) {
+                                    List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                    if (!CollectionUtils.isEmpty(floatImages)) {
+                                        value = floatImages.get(0);
                                     }
-                                    field.setAccessible(true);
-                                    field.set(obj, value);
-                                }
-                            }
-                        } catch (Exception e) {
-                            validate = false;
-                            ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
-                            errorMessage.setRow(row.getRowNum());
-                            errorMessage.setCol(CellReference.convertNumToColString(c));
-                            errorMessage.setCell(new CellAddress(row.getRowNum(), c).formatAsString());
-                            if (e instanceof ImageOutOfBoundsException) {
-                                errorMessage.setMessage(e.getMessage());
-                            } else {
-                                errorMessage.setMessage("类型转换错误");
+                                } else if (field.getType().isAssignableFrom(BufferedImage.class)) {
+                                    List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                    if (!CollectionUtils.isEmpty(floatImages)) {
+                                        value = ImageUtil.Bytes2Image(floatImages.get(0));
 
+                                    }
+                                } else if (field.getType().isAssignableFrom(List.class)) {
+                                    ParameterizedType genericType = (ParameterizedType) field.getGenericType();
+                                    if (genericType.getActualTypeArguments()[0] == BufferedImage.class) {
+                                        List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                        value = new ArrayList<>();
+                                        for (byte[] floatImage : floatImages) {
+                                            ((List<Object>) value).add(ImageUtil.Bytes2Image(floatImage));
+                                        }
+                                    } else if (genericType.getActualTypeArguments()[0] == byte[].class) {
+                                        value = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                                    }
+                                }
+                                field.setAccessible(true);
+                                field.set(obj, value);
                             }
-                            result.getErrors().add(errorMessage);
                         }
-                    }
-                    List<ValidateResult> validateResults = validate(obj);
-                    validate = isValidate(result, headMap, row, validate, validateResults, clazz);
+                    } catch (Exception e) {
+                        validate = false;
+                        ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                        errorMessage.setRow(row.getRowNum());
+                        errorMessage.setCol(CellReference.convertNumToColString(c));
+                        errorMessage.setCell(new CellAddress(row.getRowNum(), c).formatAsString());
+                        if (e instanceof ImageOutOfBoundsException) {
+                            errorMessage.setMessage(e.getMessage());
+                        } else {
+                            errorMessage.setMessage("类型转换错误");
 
-                    if (customValidateFunc != null) {
-                        List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
-                        validate = isValidate(result, headMap, row, validate, customValidateResults, clazz);
+                        }
+                        result.getErrors().add(errorMessage);
                     }
-                    if (validate) {
-                        list.put(row.getRowNum(), obj);
-                    }
+                }
+                if (isEmptyRow) {
+                    //空行时总数-1，且不校验
+                    totalCount--;
+                    continue;
+                }
+
+                List<ValidateResult> validateResults = validate(obj);
+                validate = isValidate(result, headMap, row, validate, validateResults, clazz);
+
+                if (customValidateFunc != null) {
+                    List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
+                    validate = isValidate(result, headMap, row, validate, customValidateResults, clazz);
+                }
+                if (validate) {
+                    list.put(row.getRowNum(), obj);
                 }
             }
         }
         //设置总记录数
         result.setTotalCount(totalCount);
-        if (list.size() > 0) {
-            if (faultTolerant || result.getErrors().size() == 0) {
+        if (!list.isEmpty()) {
+            if (faultTolerant || result.getErrors().isEmpty()) {
                 //如果容错模式或是验证全部通过
                 if (importFunc != null) {
                     //如果有导入函数
@@ -475,17 +533,16 @@ public class ExcelUtil {
         }
 
         return result;
-
     }
 
 
     /**
      * 获取列序号和字段的对应关系
      *
-     * @param clazz
+     * @param clazz 中间类类型
      * @param row   标题行
-     * @param <T>
-     * @return
+     * @param <T> 中间类类型
+     * @return 导入列序号和字段的对应关系
      */
     private static <T> Map<Integer, List<Field>> getHeadMap(Class<T> clazz, Row row) {
         //列序号和字段的map
@@ -531,14 +588,14 @@ public class ExcelUtil {
     /**
      * 根据验证结果填充错误信息
      *
-     * @param result
-     * @param headMap
-     * @param row
-     * @param validate
-     * @param validateResults
-     * @return
+     * @param result 导入结果
+     * @param headMap 行map
+     * @param row 当前行
+     * @param validate 验证是否通过
+     * @param validateResults 验证信息
+     * @return 验证是否通过
      */
-    private static boolean isValidate(ImportResult result, Map<Integer, List<Field>> headMap, Row row, boolean validate, List<ValidateResult> validateResults, Class<?> clazz) {
+    private static boolean isValidate(ImportResult<?> result, Map<Integer, List<Field>> headMap, Row row, boolean validate, List<ValidateResult> validateResults, Class<?> clazz) {
         if (validateResults != null && !validateResults.isEmpty()) {
             validate = false;
             for (ValidateResult v : validateResults) {
@@ -569,9 +626,12 @@ public class ExcelUtil {
                     String columnName = fieldName;
                     Field field = Arrays.stream(clazz.getDeclaredFields()).filter(m -> m.getName().equals(fieldName)).findFirst().orElse(null);
                     if (field != null) {
-                        String title = field.getAnnotation(ExcelColumn.class).value();
-                        if (StringUtil.isNotEmpty(title)) {
-                            columnName = title;
+                        ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
+                        if(excelColumn!=null) {
+                            String title = excelColumn.value();
+                            if (StringUtil.isNotEmpty(title)) {
+                                columnName = title;
+                            }
                         }
                     }
                     //如果错误不在单元格内，不
@@ -596,9 +656,9 @@ public class ExcelUtil {
     public static List<ValidateResult> validate(@Valid Object obj) {
         List<ValidateResult> result = new ArrayList<>();
         Set<ConstraintViolation<@Valid Object>> validateSet = getValidatorInstance()
-                .validate(obj, new Class[0]);
+                .validate(obj);
         if (!CollectionUtils.isEmpty(validateSet)) {
-            validateSet.stream().forEach((v) -> {
+            validateSet.forEach((v) -> {
                 String msg = v.getMessage();
                 if (StringUtil.isEmpty(msg)) {
                     msg = "参数输入有误";
@@ -615,9 +675,9 @@ public class ExcelUtil {
     /**
      * json-schema验证
      *
-     * @param schemaJson
-     * @param obj
-     * @return
+     * @param schemaJson json结构
+     * @param obj 对象
+     * @return 验证结果信息
      */
     public static List<ValidateResult> jsonSchemaValidate(String schemaJson, Object obj) {
         List<ValidateResult> result = new ArrayList<>();
@@ -647,14 +707,14 @@ public class ExcelUtil {
     /**
      * 简单的excel转list
      *
-     * @param filepath
-     * @return
+     * @param filepath excel路径
+     * @return 返回结果列表
      */
     public static List<Map<String, String>> excel2List(String filepath) {
 
         List<Map<String, String>> list = new ArrayList<>();
         FileInputStream inputStream = null;
-        Workbook workbook = null;
+        Workbook workbook;
         try {
             inputStream = new FileInputStream(filepath);
             workbook = StreamingReader.builder()
@@ -665,6 +725,9 @@ public class ExcelUtil {
                     //打开资源，必须，可以是InputStream或者是File，注意：只能打开XLSX格式的文件
                     .open(inputStream);
         } catch (Exception e1) {
+            if (inputStream == null) {
+                throw new RuntimeException("无法读取文件");
+            }
             try {
                 workbook = new HSSFWorkbook(inputStream);
             } catch (Exception e2) {
@@ -680,51 +743,49 @@ public class ExcelUtil {
                 for (int c = 0; c < row.getLastCellNum(); c++) {
                     Cell cell = row.getCell(c);
                     if (null != cell) {
-                        if (cell.getStringCellValue().length() > 0) {
+                        if (!cell.getStringCellValue().isEmpty()) {
                             headMap.put(c, cell.getStringCellValue());
                         }
                     }
                 }
             } else {
-                if (null != row) {
-                    Map<String, String> obj = new HashMap<>();
-                    for (Integer i : headMap.keySet()) {
-                        Cell cell = row.getCell(i);
-                        //是否日期单元格
-                        String dateFormat = "yyyy-MM-dd HH:mm:ss";
-                        if (null != cell) {
-                            String str = null;
-                            CellType cellType = cell.getCellTypeEnum();
-                            //支持公式单元格
-                            if (cellType == CellType.FORMULA) {
-                                cellType = cell.getCachedFormulaResultTypeEnum();
-                            }
-                            switch (cellType) {
-                                case NUMERIC:
-                                    if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                                        str = StringUtil.format(cell.getDateCellValue(), dateFormat);
-                                    } else {
-                                        BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
-                                        str = bd.stripTrailingZeros().toPlainString();
-                                    }
-                                    break;
-                                case BOOLEAN:
-                                    str = String.valueOf(cell.getBooleanCellValue());
-                                    break;
-                                case ERROR:
-                                    str = null;
-                                    break;
-                                case STRING:
-                                default:
-                                    str = cell.getStringCellValue();
-                                    break;
-                            }
-                            obj.put(headMap.get(i), str);
+                Map<String, String> obj = new HashMap<>();
+                for (Integer i : headMap.keySet()) {
+                    Cell cell = row.getCell(i);
+                    //是否日期单元格
+                    String dateFormat = "yyyy-MM-dd HH:mm:ss";
+                    if (null != cell) {
+                        String str;
+                        CellType cellType = cell.getCellType();
+                        //支持公式单元格
+                        if (cellType == CellType.FORMULA) {
+                            cellType = cell.getCachedFormulaResultType();
                         }
+                        switch (cellType) {
+                            case NUMERIC:
+                                if (DateUtil.isCellDateFormatted(cell)) {
+                                    str = StringUtil.format(cell.getDateCellValue(), dateFormat);
+                                } else {
+                                    BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
+                                    str = bd.stripTrailingZeros().toPlainString();
+                                }
+                                break;
+                            case BOOLEAN:
+                                str = String.valueOf(cell.getBooleanCellValue());
+                                break;
+                            case ERROR:
+                                str = null;
+                                break;
+                            case STRING:
+                            default:
+                                str = cell.getStringCellValue();
+                                break;
+                        }
+                        obj.put(headMap.get(i), str);
                     }
-                    list.add(obj);
-
                 }
+                list.add(obj);
+
             }
         }
 
@@ -735,9 +796,9 @@ public class ExcelUtil {
     /**
      * 生成导出excel模板
      *
-     * @param clazz
-     * @param <T>
-     * @return
+     * @param clazz 中间类类型
+     * @param <T> 中间类类型
+     * @return 导出excel模板
      */
     public static <T> byte[] createImportExcelTemplate(Class<T> clazz) {
         XSSFWorkbook wb = new XSSFWorkbook();
@@ -752,18 +813,14 @@ public class ExcelUtil {
                 i++;
             }
         }
-        if (wb != null) {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            try {
-                wb.write(baos);
-                baos.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return baos.toByteArray();
-        } else {
-            return null;
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            wb.write(baos);
+            baos.close();
+        } catch (IOException e) {
+            log.error(e.getMessage(),e);
         }
+        return baos.toByteArray();
     }
 
     public static List<byte[]> getFloatImagesBytes(Sheet sheet, Integer rowIndex, Integer columnIndex) {
@@ -787,8 +844,8 @@ public class ExcelUtil {
     /**
      * 是否有图片字段
      *
-     * @param clazz
-     * @return
+     * @param clazz 中间类类型
+     * @return 是否有图片字段
      */
     private static boolean hasCellImageField(Class<?> clazz) {
         for (Field field : clazz.getDeclaredFields()) {
@@ -811,9 +868,10 @@ public class ExcelUtil {
      * @param filepath      excel文件路径
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @return
+     * @return 导入结果
      */
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             String filepath, List<ColumnInfo> columnInfos,
             boolean faultTolerant) {
         return importExcel(filepath, columnInfos, faultTolerant, 1, null, null);
@@ -826,9 +884,10 @@ public class ExcelUtil {
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
-     * @return
+     * @return 导入结果
      */
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             String filepath, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
             int startRow) {
@@ -842,10 +901,10 @@ public class ExcelUtil {
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @return
+     * @return 导入结果
      */
-
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             String filepath, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
             Function<Map<String, Object>, Boolean> importFunc) {
@@ -861,9 +920,10 @@ public class ExcelUtil {
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @return
+     * @return 导入结果
      */
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             String filepath, List<ColumnInfo> columnInfos,
             boolean faultTolerant, int startRow,
             Function<Map<String, Object>, Boolean> importFunc) {
@@ -878,10 +938,10 @@ public class ExcelUtil {
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @return
+     * @return 导入结果
      */
-
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             String filepath, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
             Function<Map<String, Object>, List<ValidateResult>> customValidateFunc,
@@ -898,9 +958,10 @@ public class ExcelUtil {
      * @param startRow           开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @return
+     * @return 导入结果
      */
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             String filepath, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
             int startRow,
@@ -921,9 +982,10 @@ public class ExcelUtil {
      * @param inputStream   excel文件的字节数组
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
-     * @return
+     * @return 导入结果
      */
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             InputStream inputStream, List<ColumnInfo> columnInfos,
             boolean faultTolerant) {
         return importExcel(inputStream, columnInfos, faultTolerant, 1, null, null);
@@ -936,8 +998,9 @@ public class ExcelUtil {
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
-     * @return
+     * @return 导入结果
      */
+    @Deprecated
     public static ImportResult importExcel(
             InputStream inputStream, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
@@ -952,9 +1015,10 @@ public class ExcelUtil {
      * @param columnInfos   列信息
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @return
+     * @return 导入结果
      */
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             InputStream inputStream, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
             Function<Map<String, Object>, Boolean> importFunc) {
@@ -970,9 +1034,10 @@ public class ExcelUtil {
      * @param faultTolerant 是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param startRow      开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param importFunc    一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @return
+     * @return 导入结果
      */
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             InputStream inputStream, List<ColumnInfo> columnInfos,
             boolean faultTolerant, int startRow,
             Function<Map<String, Object>, Boolean> importFunc) {
@@ -987,9 +1052,10 @@ public class ExcelUtil {
      * @param faultTolerant      是否容错，验证是所有数据先验证后在一条条导入。true表示不需要全部数据都符合验证，false则表示必须全部数据符合验证才执行导入。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @return
+     * @return 导入结果
      */
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             InputStream inputStream, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
             Function<Map<String, Object>, List<ValidateResult>> customValidateFunc,
@@ -1006,17 +1072,43 @@ public class ExcelUtil {
      * @param startRow           开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
      * @param customValidateFunc {@code 自定义验证的方法，一般简单验证写在字段注解中，这里处理复杂验证，如身份证格式等，不需要请传null。如果验证错误,则返回List<ValidateResult>,由于一行数据可能有多个错误，所以用List。如果验证通过返回null或空list即可}
      * @param importFunc         一条条入库的方法,只有验证通过的数据才会进入此方法。如果你是批量入库，请自行获取结果的成功列表,此参数传null。返回true表示入库成功，入库失败提示请抛一个带message的Exception。
-     * @return
+     * @return 导入结果
      */
-    public static ImportResult importExcel(
+    @Deprecated
+    public static ImportResult<?> importExcel(
             InputStream inputStream, List<ColumnInfo> columnInfos,
             boolean faultTolerant,
             int startRow,
             Function<Map<String, Object>, List<ValidateResult>> customValidateFunc,
             Function<Map<String, Object>, Boolean> importFunc) {
+        return importExcel(ExcelImportMapConfig.builder()
+                .inputStream(inputStream)
+                .columnInfos(columnInfos)
+                .faultTolerant(faultTolerant)
+                .startRow(startRow)
+                .customValidateFunc(customValidateFunc)
+                .importFunc(importFunc)
+                .build());
+    }
+
+    public static ImportResult<?> importExcel(ExcelImportMapConfig config) {
+        List<ColumnInfo> columnInfos = config.getColumnInfos();
+        InputStream inputStream = config.getInputStream();
+        if (inputStream == null && StringUtil.isNotBlank(config.getFilepath())) {
+            try {
+                inputStream = Files.newInputStream(Paths.get(config.getFilepath()));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        assert inputStream != null;
+        int startRow = config.getStartRow();
+        Function<Map<String, Object>, Boolean> importFunc = config.getImportFunc();
+        Function<Map<String, Object>, List<ValidateResult>> customValidateFunc = config.getCustomValidateFunc();
+        boolean faultTolerant = config.isFaultTolerant();
         ImportResult<Map<String, Object>> result = new ImportResult<>();
         result.setErrors(new ArrayList<>());
-        Workbook workbook = null;
+        Workbook workbook;
         try {
             if (columnInfos.stream().anyMatch(m -> m.getType() == ColumnType.IMAGE.getValue() || m.getType() == ColumnType.IMAGES.getValue())) {
                 //如果有图片字段，则不使用StreamingWorkbook
@@ -1040,13 +1132,20 @@ public class ExcelUtil {
         Sheet sheet = workbook.getSheetAt(0);
         //列序号和字段的map
         Map<Integer, ColumnInfo> headMap = new HashMap<>();
+        if (config.isOnlyData()) {
+            columnInfos.stream().filter(m -> StringUtil.isNotEmpty(m.getColString())).forEach(columnInfo ->
+            {
+                int i = CellReference.convertColStringToIndex(columnInfo.getColString());
+                headMap.put(i, columnInfo);
+            });
+        }
         Map<Integer, Map<String, Object>> list = new LinkedHashMap<>();
         int totalCount = 0;
         int titleRowNum = startRow - 1;
         for (Row row : sheet) {
             if (row.getRowNum() < titleRowNum) {
                 //小于标题行的抛弃
-            } else if (row.getRowNum() == titleRowNum) {
+            } else if (row.getRowNum() == titleRowNum && !config.isOnlyData()) {
                 for (int c = 0; c < row.getLastCellNum(); c++) {
                     Cell cell = row.getCell(c);
                     if (null != cell) {
@@ -1065,96 +1164,94 @@ public class ExcelUtil {
 
             } else {
                 totalCount++;
-                if (null != row) {
-                    boolean isEmptyRow = true;
-                    Map<String, Object> obj = new HashMap<>();
-                    boolean validate = true;
-                    for (Integer c : headMap.keySet()) {
-                        ColumnInfo columnInfo = headMap.get(c);
-                        //处理图片
-                        if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
-                            List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
-                            if (!CollectionUtils.isEmpty(floatImages)) {
-                                obj.put(columnInfo.getName(), floatImages.get(0));
-                                isEmptyRow = false;
-                            }
-                            continue;
-                        } else if (columnInfo.getType() == ColumnType.IMAGES.getValue()) {
-                            List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
-                            obj.put(columnInfo.getName(), floatImages);
-                            if (!CollectionUtils.isEmpty(floatImages)) {
-                                isEmptyRow = false;
-                            }
-                            continue;
+                boolean isEmptyRow = true;
+                Map<String, Object> obj = new HashMap<>();
+                boolean validate = true;
+                for (Integer c : headMap.keySet()) {
+                    ColumnInfo columnInfo = headMap.get(c);
+                    //处理图片
+                    if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
+                        List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                        if (!CollectionUtils.isEmpty(floatImages)) {
+                            obj.put(columnInfo.getName(), floatImages.get(0));
+                            isEmptyRow = false;
                         }
-                        Cell cell = row.getCell(c);
-                        //是否日期单元格
-                        boolean isDateCell = SheetUtil.isDateCell(cell);
-                        String dateFormat = "yyyy-MM-dd HH:mm:ss";
-                        try {
-                            if (null != cell) {
-                                String str = SheetUtil.getCellStringValue(cell);
-                                if (!StringUtil.isBlank(str)) {
-                                    isEmptyRow = false;
-                                }
-                                Object value = null;
-                                if (isDateCell && (columnInfo.getType() == ColumnType.DATETIME.getValue() || columnInfo.getType() == ColumnType.DATE.getValue())) {
-                                    //特殊处理日期格式
-                                    if (!StringUtil.isBlank(str)) {
-                                        value = StringUtil.parse(str, dateFormat, Date.class);
-                                    }
-                                } else if (isDateCell && columnInfo.getType() == ColumnType.TIME.getValue()) {
-                                    if (!StringUtil.isBlank(str)) {
-                                        value = StringUtil.parse(str, dateFormat, Time.class);
-                                    }
-                                } else if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
-                                    value = SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell);
-                                } else if (columnInfo.getType() == ColumnType.LONG.getValue()) {
-                                    value = StringUtil.parse(str, Long.class);
-                                } else if (columnInfo.getType() == ColumnType.DOUBLE.getValue()) {
-                                    value = StringUtil.parse(str, Double.class);
-                                } else {
-                                    value = str;
-                                }
-                                obj.put(columnInfo.getName(), value);
-                            }
-                        } catch (Exception e) {
-                            validate = false;
-                            ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
-                            errorMessage.setRow(row.getRowNum());
-                            errorMessage.setCol(CellReference.convertNumToColString(c));
-                            errorMessage.setCell(new CellAddress(row.getRowNum(), c).formatAsString());
-                            if (e instanceof ImageOutOfBoundsException) {
-                                errorMessage.setMessage(e.getMessage());
-                            } else {
-                                errorMessage.setMessage("类型转换错误");
-
-                            }
-                            result.getErrors().add(errorMessage);
+                        continue;
+                    } else if (columnInfo.getType() == ColumnType.IMAGES.getValue()) {
+                        List<byte[]> floatImages = getFloatImagesBytes(sheet, row.getRowNum(), c);
+                        obj.put(columnInfo.getName(), floatImages);
+                        if (!CollectionUtils.isEmpty(floatImages)) {
+                            isEmptyRow = false;
                         }
-                    }
-                    if (isEmptyRow) {
-                        //空行时总数-1，且不校验
-                        totalCount--;
                         continue;
                     }
-                    List<ValidateResult> validateResults = ValidateUtil.validate(obj, columnInfos);
-                    validate = ValidateUtil.isValidate(result, headMap, row, validate, validateResults, columnInfos);
+                    Cell cell = row.getCell(c);
+                    //是否日期单元格
+                    boolean isDateCell = SheetUtil.isDateCell(cell);
+                    String dateFormat = "yyyy-MM-dd HH:mm:ss";
+                    try {
+                        if (null != cell) {
+                            String str = SheetUtil.getCellStringValue(cell);
+                            if (!StringUtil.isBlank(str)) {
+                                isEmptyRow = false;
+                            }
+                            Object value = null;
+                            if (isDateCell && (columnInfo.getType() == ColumnType.DATETIME.getValue() || columnInfo.getType() == ColumnType.DATE.getValue())) {
+                                //特殊处理日期格式
+                                if (!StringUtil.isBlank(str)) {
+                                    value = StringUtil.parse(str, dateFormat, Date.class);
+                                }
+                            } else if (isDateCell && columnInfo.getType() == ColumnType.TIME.getValue()) {
+                                if (!StringUtil.isBlank(str)) {
+                                    value = StringUtil.parse(str, dateFormat, Time.class);
+                                }
+                            } else if (columnInfo.getType() == ColumnType.IMAGE.getValue()) {
+                                value = SheetUtil.getCellImageBytes((XSSFWorkbook) workbook, cell);
+                            } else if (columnInfo.getType() == ColumnType.LONG.getValue()) {
+                                value = StringUtil.parse(str, Long.class);
+                            } else if (columnInfo.getType() == ColumnType.DOUBLE.getValue()) {
+                                value = StringUtil.parse(str, Double.class);
+                            } else {
+                                value = str;
+                            }
+                            obj.put(columnInfo.getName(), value);
+                        }
+                    } catch (Exception e) {
+                        validate = false;
+                        ImportResult.ErrorMessage errorMessage = new ImportResult.ErrorMessage();
+                        errorMessage.setRow(row.getRowNum());
+                        errorMessage.setCol(CellReference.convertNumToColString(c));
+                        errorMessage.setCell(new CellAddress(row.getRowNum(), c).formatAsString());
+                        if (e instanceof ImageOutOfBoundsException) {
+                            errorMessage.setMessage(e.getMessage());
+                        } else {
+                            errorMessage.setMessage("类型转换错误");
 
-                    if (customValidateFunc != null) {
-                        List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
-                        validate = ValidateUtil.isValidate(result, headMap, row, validate, customValidateResults, columnInfos);
+                        }
+                        result.getErrors().add(errorMessage);
                     }
-                    if (validate) {
-                        list.put(row.getRowNum(), obj);
-                    }
+                }
+                if (isEmptyRow) {
+                    //空行时总数-1，且不校验
+                    totalCount--;
+                    continue;
+                }
+                List<ValidateResult> validateResults = ValidateUtil.validate(obj, columnInfos);
+                validate = ValidateUtil.isValidate(result, headMap, row, validate, validateResults, columnInfos);
+
+                if (customValidateFunc != null) {
+                    List<ValidateResult> customValidateResults = customValidateFunc.apply(obj);
+                    validate = ValidateUtil.isValidate(result, headMap, row, validate, customValidateResults, columnInfos);
+                }
+                if (validate) {
+                    list.put(row.getRowNum(), obj);
                 }
             }
         }
         //设置总记录数
         result.setTotalCount(totalCount);
-        if (list.size() > 0) {
-            if (faultTolerant || result.getErrors().size() == 0) {
+        if (!list.isEmpty()) {
+            if (faultTolerant || result.getErrors().isEmpty()) {
                 //如果容错模式或是验证全部通过
                 if (importFunc != null) {
                     //如果有导入函数

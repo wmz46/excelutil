@@ -51,10 +51,15 @@ public class Tests {
     @Test
     public void test1() {
         String filepath = System.getProperty("user.dir") + "//testdata//test1.xlsx";
-        ImportResult importResult = ExcelUtil.importExcel(filepath,//excle文件路径,也传excle文件的字节数组byte[],支持xls和xlsx。
-                TestModel.class,//中间类类型
-                true//是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
-        );
+
+        ImportResult<TestModel> importResult = ExcelUtil.importExcel(ExcelImportConfig.<TestModel>builder()
+                //中间类类型
+                .clazz(TestModel.class)
+                //excle文件路径, 支持xls和xlsx。
+                .filepath(filepath)
+                //是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
+                .faultTolerant(true)
+                .build());
         System.out.println(importResult);
     }
 
@@ -68,7 +73,6 @@ public class Tests {
     @Test
     public void test3() {
         String filepath = System.getProperty("user.dir") + "//testdata//test1.xlsx";
-        List<ColumnInfo> columnInfos = new ArrayList<>();
         ColumnInfo c1 = new ColumnInfo("age", "年龄", null, ColumnType.LONG.getValue());
         c1.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
@@ -106,18 +110,22 @@ public class Tests {
                 add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
-        columnInfos.addAll(Arrays.asList(c1, c2, c3, c4, c5, c6));
-        ImportResult importResult = ExcelUtil.importExcel(filepath,//excle文件路径,也传excle文件的字节数组byte[],支持xls和xlsx。
-                columnInfos,//中间类类型
-                true//是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
-        );
+        List<ColumnInfo> columnInfos = new ArrayList<>(Arrays.asList(c1, c2, c3, c4, c5, c6));
+        ImportResult<?> importResult = ExcelUtil.importExcel(
+                ExcelImportMapConfig.builder()
+                        //excle文件路径,支持xls和xlsx。
+                        .filepath(filepath)
+                        //是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
+                        .faultTolerant(true)
+                        //列配置
+                        .columnInfos(columnInfos)
+                        .build());
         System.out.println(importResult);
     }
 
     @Test
     public void test4() {
         String filepath = System.getProperty("user.dir") + "//testdata//test1.xlsx";
-        List<ColumnInfo> columnInfos = new ArrayList<>();
         ColumnInfo c1 = new ColumnInfo("age", null, "B", ColumnType.STRING.getValue());
         c1.setRules(new ArrayList<ColumnInfo.Rule>() {
             {
@@ -157,11 +165,16 @@ public class Tests {
                 add(ColumnInfo.Rule.fromBuiltIn(ValidationConsts.REQUIRED));
             }
         });
-        columnInfos.addAll(Arrays.asList(c1, c2, c3, c4, c5, c6));
-        ImportResult importResult = ExcelUtil.importExcel(filepath,//excle文件路径,也传excle文件的字节数组byte[],支持xls和xlsx。
-                columnInfos,//中间类类型
-                true//是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
-        );
+        List<ColumnInfo> columnInfos = new ArrayList<>(Arrays.asList(c1, c2, c3, c4, c5, c6));
+        ImportResult<?> importResult = ExcelUtil.importExcel(
+                ExcelImportMapConfig.builder()
+                        //excle文件路径,支持xls和xlsx。
+                        .filepath(filepath)
+                        //列配置
+                        .columnInfos(columnInfos)
+                        //是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
+                        .faultTolerant(true)
+                        .build());
         System.out.println(importResult);
     }
 
@@ -210,7 +223,13 @@ public class Tests {
         List<ColumnInfo> columnInfos = new ArrayList<>();
         columnInfos.add(new ColumnInfo("title", "标题", "A", ColumnType.STRING.getValue()));
         columnInfos.add(new ColumnInfo("images", "图片", "B", ColumnType.IMAGES.getValue()));
-        ImportResult importResult = ExcelUtil.importExcel(filepath, columnInfos, true, 1);
+        ImportResult<?> importResult = ExcelUtil.importExcel(
+                ExcelImportMapConfig.builder()
+                        .filepath(filepath)
+                        .faultTolerant(true)
+                        .columnInfos(columnInfos)
+                        .startRow(1)
+                        .build());
         System.out.println(importResult);
     }
 
@@ -219,37 +238,39 @@ public class Tests {
         String filepath = System.getProperty("user.dir") + "//testdata//test2.xlsx";
         List<FieldInfo> fieldInfos = new ArrayList<>();
         FieldInfo fieldInfo = new FieldInfo("概况描述", "B13", ColumnType.STRING.getValue());
-        fieldInfo.setRules(new ArrayList<BaseInfo.Rule>(){{
-            add(BaseInfo.Rule.fromRegExp("^.{6}$","概况描述必须写6位"));
+        fieldInfo.setRules(new ArrayList<BaseInfo.Rule>() {{
+            add(BaseInfo.Rule.fromRegExp("^.{6}$", "概况描述必须写6位"));
         }});
         fieldInfos.add(fieldInfo);
-        fieldInfos.add(new FieldInfo("产生原因","E13",ColumnType.STRING.getValue()));
-        fieldInfos.add(new FieldInfo("涉及人员","F13",ColumnType.STRING.getValue()));
-        fieldInfos.add(new FieldInfo("备注","G13",ColumnType.STRING.getValue()));
+        fieldInfos.add(new FieldInfo("产生原因", "E13", ColumnType.STRING.getValue()));
+        fieldInfos.add(new FieldInfo("涉及人员", "F13", ColumnType.STRING.getValue()));
+        fieldInfos.add(new FieldInfo("备注", "G13", ColumnType.STRING.getValue()));
         ImportSingleResult importSingleResult = ExcelSingleUtil.importExcel(filepath, fieldInfos);
         System.out.println(importSingleResult);
     }
+
     @Test
-    public void test8(){
+    public void test8() {
         String filepath = System.getProperty("user.dir") + "//testdata//wordtpl.docx";
-        Map<String,Object> map = new HashMap<>();
-        List<Map<String,Object>> list =new ArrayList<>();
-        list.add(new HashMap<String,Object>(){{
-            put("name","语文");
-            put("score","99");
+        Map<String, Object> map = new HashMap<>();
+        List<Map<String, Object>> list = new ArrayList<>();
+        list.add(new HashMap<String, Object>() {{
+            put("name", "语文");
+            put("score", "99");
         }});
-        list.add(new HashMap<String,Object>(){{
-            put("name","数学");
-            put("score","100");
+        list.add(new HashMap<String, Object>() {{
+            put("name", "数学");
+            put("score", "100");
         }});
-        map.put("name","张三");
-        map.put("age","20");
-        map.put("desc","换行\n换行\n换行");
-        map.put("course",list);
+        map.put("name", "张三");
+        map.put("age", "20");
+        map.put("desc", "换行\n换行\n换行");
+        map.put("course", list);
         XWPFDocument doc = WordTemplateUtil.load(filepath);
-        WordTemplateUtil.fillData(doc,map);
-        WordTemplateUtil.save(doc,System.getProperty("user.dir")+"//testdata//result.docx");
+        WordTemplateUtil.fillData(doc, map);
+        WordTemplateUtil.save(doc, System.getProperty("user.dir") + "//testdata//result.docx");
     }
+
     @Test
     public void test9() throws IOException {
 
@@ -259,13 +280,13 @@ public class Tests {
         columnInfos.add(new ColumnInfo("title", "标题", "A", ColumnType.STRING.getValue()));
         columnInfos.add(new ColumnInfo("images", "图片", "B", ColumnType.IMAGES.getValue()));
         ColumnInfo c3 = new ColumnInfo("enums", "枚举", "C", ColumnType.STRING.getValue());
-        c3.setRules(new ArrayList<BaseInfo.Rule>(){{
-            add(BaseInfo.Rule.fromEnums(Arrays.asList("澄海区","金平区","龙湖区"),"枚举值错误"));
+        c3.setRules(new ArrayList<BaseInfo.Rule>() {{
+            add(BaseInfo.Rule.fromEnums(Arrays.asList("澄海区", "金平区", "龙湖区"), "枚举值错误"));
         }});
         columnInfos.add(c3);
         ColumnInfo c4 = new ColumnInfo("range", "范围", "D", ColumnType.LONG.getValue());
-        c4.setRules(new ArrayList<BaseInfo.Rule>(){{
-            add(BaseInfo.Rule.fromRange(1,5,"范围错误"));
+        c4.setRules(new ArrayList<BaseInfo.Rule>() {{
+            add(BaseInfo.Rule.fromRange(1, 5, "范围错误"));
         }});
         columnInfos.add(c4);
 

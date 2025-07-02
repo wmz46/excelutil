@@ -13,17 +13,24 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 
 public @interface ExcelColumn {
-    //excel第一行标题名称
+    /**
+     * excel标题名称，有换行符需加换行符\n
+     * @return
+     */
     String value() default "";
 
+    /**
+     * 列标识  A B C D
+     * 优先级大于value
+     * 当设置onlyData时，此字段必填
+     *
+     * @return
+     */
+    String colString() default "";
 
     String trueString() default "true";
 
     String falseString() default "false";
 
-    //列宽，字符数 像素点 = 字符数*256
-    int width() default -1;
 
-    // 排序，导出用，越小排越前,默认100
-    int order() default 100;
 }
