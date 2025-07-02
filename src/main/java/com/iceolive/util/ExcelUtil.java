@@ -347,7 +347,7 @@ public class ExcelUtil {
                 throw new RuntimeException(e2);
             }
         }
-        Sheet sheet = workbook.getSheetAt(0);
+        Sheet sheet = workbook.getSheetAt(config.getSheetIndex());
         //列序号和字段的map
         Map<Integer, List<Field>> headMap = new HashMap<>();
         if (config.isOnlyData()) {
@@ -627,7 +627,7 @@ public class ExcelUtil {
                     Field field = Arrays.stream(clazz.getDeclaredFields()).filter(m -> m.getName().equals(fieldName)).findFirst().orElse(null);
                     if (field != null) {
                         ExcelColumn excelColumn = field.getAnnotation(ExcelColumn.class);
-                        if(excelColumn!=null) {
+                        if (excelColumn != null) {
                             String title = excelColumn.value();
                             if (StringUtil.isNotEmpty(title)) {
                                 columnName = title;
@@ -711,6 +711,17 @@ public class ExcelUtil {
      * @return 返回结果列表
      */
     public static List<Map<String, String>> excel2List(String filepath) {
+        return excel2List(filepath, 0);
+    }
+
+    /**
+     * 简单的excel转list
+     *
+     * @param filepath excel路径
+     * @param  sheetIndex 工作表索引
+     * @return 返回结果列表
+     */
+    public static List<Map<String, String>> excel2List(String filepath, int sheetIndex) {
 
         List<Map<String, String>> list = new ArrayList<>();
         FileInputStream inputStream = null;
@@ -735,7 +746,7 @@ public class ExcelUtil {
             }
         }
 
-        Sheet sheet = workbook.getSheetAt(0);
+        Sheet sheet = workbook.getSheetAt(sheetIndex);
 
         Map<Integer, String> headMap = new HashMap<>();
         for (Row row : sheet) {
@@ -818,7 +829,7 @@ public class ExcelUtil {
             wb.write(baos);
             baos.close();
         } catch (IOException e) {
-            log.error(e.getMessage(),e);
+            log.error(e.getMessage(), e);
         }
         return baos.toByteArray();
     }
@@ -1129,7 +1140,7 @@ public class ExcelUtil {
                 throw new RuntimeException(e2);
             }
         }
-        Sheet sheet = workbook.getSheetAt(0);
+        Sheet sheet = workbook.getSheetAt(config.getSheetIndex());
         //列序号和字段的map
         Map<Integer, ColumnInfo> headMap = new HashMap<>();
         if (config.isOnlyData()) {

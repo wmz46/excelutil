@@ -59,5 +59,10 @@ public class ExcelImportConfig<T> {
      */
     private boolean onlyData;
 
+    /**
+     * 读取的工作表索引，从0开始
+     */
+    private int sheetIndex = 0;
+
 
  }
