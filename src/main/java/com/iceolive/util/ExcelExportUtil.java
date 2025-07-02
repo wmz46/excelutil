@@ -4,6 +4,7 @@ import com.iceolive.util.enums.ColumnType;
 import com.iceolive.util.enums.RuleType;
 import com.iceolive.util.model.BaseInfo;
 import com.iceolive.util.model.ColumnInfo;
+import com.iceolive.util.model.ExcelExportMapConfig;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.ss.util.CellReference;
@@ -26,7 +27,6 @@ import org.apache.poi.util.Units;
  * @author wangmianzhe
  */
 public class ExcelExportUtil {
-
     /**
      * 导出excel
      *
@@ -44,11 +44,32 @@ public class ExcelExportUtil {
             int startRow,
             boolean onlyData
     ) {
+        return exportExcel(ExcelExportMapConfig.builder()
+                .inputStream(inputStream)
+                .data(data)
+                .columnInfos(columnInfos)
+                .startRow(startRow)
+                .onlyData(onlyData)
+                .build());
+    }
+    /**
+     * 导出excel
+     *
+     * @param config 导出配置
+     * @return
+     */
+    public static byte[] exportExcel(ExcelExportMapConfig config) {
+        InputStream inputStream = config.getInputStream();
+        List<Map<String, Object>> data = config.getData();
+        int startRow = config.getStartRow();
+        List<ColumnInfo> columnInfos = config.getColumnInfos();
+        boolean onlyData = config.isOnlyData();
+        int sheetIndex = config.getSheetIndex();
         int imgSize = 100;
         int imgPadding = 10;
         try {
             Workbook workbook = new XSSFWorkbook(inputStream);
-            Sheet sheet = workbook.getSheetAt(0);
+            Sheet sheet = workbook.getSheetAt(sheetIndex);
             Drawing<?> drawing = sheet.getDrawingPatriarch();
 
             if (drawing == null) {
@@ -134,7 +155,7 @@ public class ExcelExportUtil {
                                         i++;
                                     }
 
-                                    if (list.size() > 0) {
+                                    if (!list.isEmpty()) {
                                         if (maxImageCount < list.size()) {
                                             maxImageCount = list.size();
                                         }
@@ -147,10 +168,10 @@ public class ExcelExportUtil {
                                 }
                                 break;
                             case LONG:
-                                cell.setCellValue(Long.valueOf(String.valueOf(value)));
+                                cell.setCellValue(Long.parseLong(String.valueOf(value)));
                                 break;
                             case DOUBLE:
-                                cell.setCellValue(Double.valueOf(String.valueOf(value)));
+                                cell.setCellValue(Double.parseDouble(String.valueOf(value)));
                                 break;
                             case DATE:
                                 cell.setCellValue(StringUtil.format(value, "yyyy-MM-dd"));
@@ -194,8 +215,7 @@ public class ExcelExportUtil {
                 pictureType = Workbook.PICTURE_TYPE_PNG;
                 break;
         }
-        int pictureIndex = workbook.addPicture(imageData, pictureType);
-        return pictureIndex;
+        return workbook.addPicture(imageData, pictureType);
     }
 
     private static double getScale(Picture picture) {
@@ -213,7 +233,6 @@ public class ExcelExportUtil {
         }
         return scaleFactor;
     }
-
     /**
      * 设置excel单元格有效性
      * @param inputStream excel模板流
@@ -226,9 +245,24 @@ public class ExcelExportUtil {
             List<ColumnInfo> columnInfos,
             int startRow
     ) {
+        return setDataValidationRules(ExcelExportMapConfig.builder()
+                .inputStream(inputStream)
+                .columnInfos(columnInfos)
+                .startRow(startRow)
+                .build());
+    }
+    /**
+     * 设置excel单元格有效性
+     * @param config 导出配置
+     * @return 返回新的excel字节数组
+     */
+    public static byte[] setDataValidationRules( ExcelExportMapConfig config    ) {
         try {
+            InputStream inputStream = config.getInputStream();
+            List<ColumnInfo> columnInfos = config.getColumnInfos();
+            int startRow = config.getStartRow();
             Workbook workbook = new XSSFWorkbook(inputStream);
-            Sheet sheet = workbook.getSheetAt(0);
+            Sheet sheet = workbook.getSheetAt(config.getSheetIndex());
             int sheetIndex = workbook.getNumberOfSheets();
             String hiddenSheetName = "_hiddenSheet";
             Sheet hiddenSheet = workbook.createSheet(hiddenSheetName);
