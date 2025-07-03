@@ -68,8 +68,10 @@ public class WordTemplateUtil {
             throw new RuntimeException("写入文件异常", e);
         }
     }
-
-    public static void fillData(XWPFDocument document, Map<String, Object> variables) {
+    public static void fillData(XWPFDocument document, Object variables) {
+        fillData(document, BeanUtil.beanToMapShallow(variables));
+    }
+    public static void fillData(XWPFDocument document, Map<String,Object> variables) {
         try {
             format(document);
             List<XWPFParagraph> paragraphs = document.getParagraphs();
@@ -224,7 +226,7 @@ public class WordTemplateUtil {
         }
     }
 
-    private static void replaceRun(XWPFRun run, XWPFParagraph paragraph, Map<String, Object> variables) {
+    private static void replaceRun(XWPFRun run, XWPFParagraph paragraph, Map<String,Object> variables) {
         String text = run.getText(run.getTextPosition());
         Matcher matcher = strTplReg.matcher(text);
         String value = text;
@@ -245,7 +247,7 @@ public class WordTemplateUtil {
 
     }
 
-    private static void insertImage(XWPFRun run, int pos, XWPFParagraph paragraph, Map<String, Object> variables) {
+    private static void insertImage(XWPFRun run, int pos, XWPFParagraph paragraph, Map<String,Object> variables) {
         String text = run.getText(run.getTextPosition());
         //判断text中 @{ 的数量
         int count = text.split("@\\{").length - 1;
@@ -278,47 +280,47 @@ public class WordTemplateUtil {
             String value = item.getText(item.getTextPosition());
             Matcher matcher = imgTplReg.matcher(value);
             if (matcher.find()) {
-                Matcher matcher2  = imgExtTplReg.matcher(value);
+                Matcher matcher2 = imgExtTplReg.matcher(value);
                 boolean hasExt = matcher2.find();
                 int width = 0;
                 int height = 0;
                 String cmd;
-                if(hasExt){
+                if (hasExt) {
                     cmd = matcher2.group(1);
                     width = Integer.parseInt(matcher2.group(2));
                     height = Integer.parseInt(matcher2.group(3));
-                }else{
+                } else {
                     cmd = matcher.group(1);
                 }
                 Object val = eval(cmd, variables);
                 byte[] bytes = null;
                 if (val instanceof BufferedImage) {
-                    if(!hasExt){
+                    if (!hasExt) {
                         width = ((BufferedImage) val).getWidth();
                         height = ((BufferedImage) val).getHeight();
                     }
                     bytes = ImageUtil.Image2Bytes((BufferedImage) val, "png");
                 } else if (val instanceof byte[]) {
                     bytes = (byte[]) val;
-                    if(!hasExt){
+                    if (!hasExt) {
                         BufferedImage bufferedImage = ImageUtil.Bytes2Image(bytes);
                         width = bufferedImage.getWidth();
                         height = bufferedImage.getHeight();
                     }
-                }else if(val instanceof String){
+                } else if (val instanceof String) {
                     //判断是否是base64
-                    if(val.toString().startsWith("data:image")){
-                        bytes = Base64.getDecoder().decode(val.toString().replaceAll("data:image/.*;base64,",""));
-                    }else{
+                    if (val.toString().startsWith("data:image")) {
+                        bytes = Base64.getDecoder().decode(val.toString().replaceAll("data:image/.*;base64,", ""));
+                    } else {
                         bytes = Base64.getDecoder().decode(val.toString());
                     }
-                    if(!hasExt){
+                    if (!hasExt) {
                         BufferedImage bufferedImage = ImageUtil.Bytes2Image(bytes);
                         width = bufferedImage.getWidth();
                         height = bufferedImage.getHeight();
                     }
                 }
-                if(bytes != null){
+                if (bytes != null) {
                     try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
                         item.setText("", 0);
                         item.addPicture(inputStream, XWPFDocument.PICTURE_TYPE_PNG, "", Units.pixelToEMU(width),
@@ -326,7 +328,7 @@ public class WordTemplateUtil {
                     } catch (Exception e) {
                         log.error(e.toString(), e);
                     }
-                }else{
+                } else {
                     item.setText("", 0);
                 }
 
@@ -338,7 +340,7 @@ public class WordTemplateUtil {
     }
 
 
-    private static void replaceParagraph(XWPFParagraph paragraph, Map<String, Object> variables) {
+    private static void replaceParagraph(XWPFParagraph paragraph, Map<String,Object> variables) {
         List<XWPFRun> runs = paragraph.getRuns();
         int length = runs.size();
         //由于可能增加换行，从后面开始循环
@@ -781,6 +783,10 @@ public class WordTemplateUtil {
         } catch (IOException | XmlException | DocumentException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static Object eval(String cmd, Object variables) {
+        return eval(cmd, BeanUtil.beanToMapShallow(variables));
     }
 
     public static Object eval(String cmd, Map<String, Object> variables) {
