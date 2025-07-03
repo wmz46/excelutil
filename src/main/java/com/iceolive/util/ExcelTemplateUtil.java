@@ -17,10 +17,13 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * @author wmz
+ */
 @Slf4j
 public class ExcelTemplateUtil {
     static Pattern tplReg = Pattern.compile("\\$\\{(.*?)}");
-    static Pattern varReg = Pattern.compile("([$_a-zA-Z0-9\\.\\[\\]]+)$");
+    static Pattern varReg = Pattern.compile("([$_a-zA-Z0-9.\\[\\]]+)$");
 
     public static XSSFWorkbook load(String filePath) {
         try {
@@ -78,7 +81,7 @@ public class ExcelTemplateUtil {
                     for (int c = 0; c <= row.getLastCellNum(); c++) {
 
                         Cell cell = row.getCell(c);
-                        if (cell != null && cell.getCellTypeEnum() == CellType.STRING) {
+                        if (cell != null && cell.getCellType() == CellType.STRING) {
                             String text = cell.getStringCellValue();
                             Matcher matcher = tplReg.matcher(text);
                             if (matcher.find()) {
@@ -89,8 +92,8 @@ public class ExcelTemplateUtil {
                                         continue;
                                     }
                                     String listName = matcher1.group(1);
-                                    List jsonArray = (List) eval(listName, variables);
-                                    if (jsonArray == null || jsonArray.size() == 0) {
+                                    List<?> jsonArray = (List<?>) eval(listName, variables);
+                                    if (jsonArray == null || jsonArray.isEmpty()) {
                                         //如果列表为空，则清除整个段落
                                         cell.setCellValue("");
                                     } else {
@@ -126,19 +129,19 @@ public class ExcelTemplateUtil {
                 if (row != null) {
                     for (int c = 0; c <= row.getLastCellNum(); c++) {
                         Cell cell = row.getCell(c);
-                        if (cell != null && cell.getCellTypeEnum() == CellType.STRING) {
+                        if (cell != null && cell.getCellType() == CellType.STRING) {
                             replaceParagraph(cell, variables);
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage(),e);
         }
     }
 
     private static void replaceParagraph(Cell cell, Map<String, Object> variables) {
-        if (cell == null || cell.getCellTypeEnum() != CellType.STRING) {
+        if (cell == null || cell.getCellType() != CellType.STRING) {
             return;
         }
         String text = cell.getStringCellValue();

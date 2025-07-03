@@ -12,26 +12,28 @@ import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
+import org.openxmlformats.schemas.officeDocument.x2006.sharedTypes.STVerticalAlignRun;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 
-import javax.el.Expression;
 import javax.el.ExpressionFactory;
 import javax.el.StandardELContext;
 import javax.el.ValueExpression;
-import javax.script.Invocable;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * @author wmz
+ */
 @Slf4j
 public class WordTemplateUtil {
 
     static Pattern tplReg = Pattern.compile("\\$\\{(.*?)}");
-    static Pattern varReg = Pattern.compile("([$_a-zA-Z0-9\\.\\[\\]]+)$");
+    static Pattern varReg = Pattern.compile("([$_a-zA-Z0-9.\\[\\]]+)$");
 
 
     public static byte[] doc2bytes(XWPFDocument document) {
@@ -63,10 +65,11 @@ public class WordTemplateUtil {
     public static void fillData(XWPFDocument document, Map<String, Object> variables) {
         try {
             format(document);
-
             List<XWPFParagraph> paragraphs = document.getParagraphs();
-            for (int j = 0; j < paragraphs.size(); j++) {
-                XWPFParagraph paragraph = paragraphs.get(j);
+            //段落判断是否有[]，有则循环段落
+            //这里必须使用for-i 循环，不允许用forIn代替，否则会报错
+            for (int i = 0; i < paragraphs.size(); i++) {
+                XWPFParagraph paragraph = paragraphs.get(i);
                 Matcher matcher = tplReg.matcher(paragraph.getText());
                 if (matcher.find()) {
                     String tpl = matcher.group(1);
@@ -76,8 +79,8 @@ public class WordTemplateUtil {
                             continue;
                         }
                         String listName = matcher1.group(1);
-                        List jsonArray = (List) eval(listName, variables);
-                        if (jsonArray == null || jsonArray.size() == 0) {
+                        List<?> jsonArray = (List<?>) eval(listName, variables);
+                        if (jsonArray == null || jsonArray.isEmpty()) {
                             //如果列表为空，则清除整个段落
                             document.removeBodyElement(document.getPosOfParagraph(paragraph));
                         } else {
@@ -95,6 +98,7 @@ public class WordTemplateUtil {
                     }
                 }
             }
+            //表格判断是否有[],有则循环表格
             Iterator<XWPFTable> itTable = document.getTablesIterator();
             while (itTable.hasNext()) {
                 XWPFTable table = itTable.next();
@@ -118,8 +122,8 @@ public class WordTemplateUtil {
                                 }
                                 String listName = matcher1.group(1);
 
-                                List jsonArray = (List) eval(listName, variables);
-                                if (jsonArray == null || jsonArray.size() == 0) {
+                                List<?> jsonArray = (List<?>) eval(listName, variables);
+                                if (jsonArray == null || jsonArray.isEmpty()) {
                                     //如果列表为空，则清除整个单元格
                                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
                                         for (XWPFRun run : paragraph.getRuns()) {
@@ -147,13 +151,15 @@ public class WordTemplateUtil {
                     }
                 }
             }
-            //替换段落
+
+
+            //替换段落变量
             for (int i = document.getParagraphs().size() - 1; i >= 0; i--) {
                 XWPFParagraph paragraph = document.getParagraphs().get(i);
 
                 XmlCursor cursor = paragraph.getCTP().newCursor();
                 cursor.selectPath("declare namespace w='http://schemas.openxmlformats.org/wordprocessingml/2006/main' .//*/w:txbxContent/w:p/w:r");
-                List<XmlObject> ctrsintxtbx = new ArrayList<XmlObject>();
+                List<XmlObject> ctrsintxtbx = new ArrayList<>();
                 while (cursor.hasNextSelection()) {
                     cursor.toNextSelection();
                     XmlObject obj = cursor.getObject();
@@ -195,7 +201,7 @@ public class WordTemplateUtil {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage(),e);
         }
 
     }
@@ -320,7 +326,7 @@ public class WordTemplateUtil {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage(),e);
         }
     }
 
@@ -337,10 +343,10 @@ public class WordTemplateUtil {
         props.setShadow(run.isShadowed());
         props.setImprinted(run.isImprinted());
         props.setEmbossed(run.isEmbossed());
-        props.setSubscript(run.getSubscript());
         props.setKerning(run.getKerning());
         props.setFontFamily(run.getFontFamily());
-        props.setFontSize(run.getFontSize());
+        props.setFontSize(run.getFontSizeAsDouble());
+        props.setVerticalAlignment(run.getVerticalAlignment());
         props.setTextPosition(run.getTextPosition());
         return props;
     }
@@ -357,10 +363,12 @@ public class WordTemplateUtil {
         run.setShadow(props.isShadow());
         run.setImprinted(props.isImprinted());
         run.setEmbossed(props.isEmbossed());
-        run.setSubscript(props.getSubscript());
+        if(props.getVerticalAlignment()!=null) {
+            run.setVerticalAlignment(props.getVerticalAlignment().toString().toLowerCase());
+        }
         run.setKerning(props.getKerning());
         run.setFontFamily(props.getFontFamily());
-        if (props.getFontSize() != -1) {
+        if (props.getFontSize() != null) {
             run.setFontSize(props.getFontSize());
         }
         run.setTextPosition(props.getTextPosition());
@@ -379,10 +387,10 @@ public class WordTemplateUtil {
         private boolean shadow;
         private boolean imprinted;
         private boolean embossed;
-        private VerticalAlign subscript;
         private int kerning;
+        private STVerticalAlignRun.Enum verticalAlignment;
         private String fontFamily;
-        private int fontSize;
+        private Double fontSize;
         private int textPosition;
 
     }
@@ -392,7 +400,7 @@ public class WordTemplateUtil {
         XWPFRun r = paragraph.createRun();
         r.setBold(run.isBold());
         r.setColor(run.getColor());
-        r.setText(run.getText(run.getTextPosition()), 0);
+        r.setText(run.text(), 0);
         r.setItalic(run.isItalic());
         r.setUnderline(run.getUnderline());
         r.setStrikeThrough(run.isStrikeThrough());
@@ -402,17 +410,15 @@ public class WordTemplateUtil {
         r.setShadow(run.isShadowed());
         r.setImprinted(run.isImprinted());
         r.setEmbossed(run.isEmbossed());
-        r.setSubscript(run.getSubscript());
         r.setKerning(run.getKerning());
         r.setFontFamily(run.getFontFamily());
-        if(run.getFontSize()!=-1) {
-            r.setFontSize(run.getFontSize());
+        if(run.getFontSizeAsDouble()!=null) {
+            r.setFontSize(run.getFontSizeAsDouble());
         }
         r.setTextPosition(run.getTextPosition());
         if (run.getCTR().getRPr() != null) {
             r.getCTR().setRPr(run.getCTR().getRPr());
         }
-
         return r;
     }
 
@@ -481,14 +487,14 @@ public class WordTemplateUtil {
         p.setFirstLineIndent(paragraph.getFirstLineIndent());
         p.setStyle(paragraph.getStyle());
         if (paragraph.getCTP().getPPr() != null) {
-            CTPPr newPPr = p.getCTP().addNewPPr();
+            CTPPr newppr = p.getCTP().addNewPPr();
             if (paragraph.getCTP().getPPr().getJc() != null) {
-                newPPr.addNewJc().setVal(paragraph.getCTP().getPPr().getJc().getVal());
+                newppr.addNewJc().setVal(paragraph.getCTP().getPPr().getJc().getVal());
             }
             CTSpacing spacing = paragraph.getCTP().getPPr().getSpacing();
             //段落间距
             if (spacing != null) {
-                CTSpacing newSpacing = newPPr.addNewSpacing();
+                CTSpacing newSpacing = newppr.addNewSpacing();
                 newSpacing.setAfter(spacing.getAfter());
                 newSpacing.setAfterAutospacing(spacing.getAfterAutospacing());
                 newSpacing.setAfterLines(spacing.getAfterLines());
@@ -520,7 +526,7 @@ public class WordTemplateUtil {
 
     private static XWPFParagraph insertCloneParagraph(XWPFDocument document, XWPFParagraph paragraph) {
         XmlCursor cursor = paragraph.getCTP().newCursor();
-        //光标移到下一段落
+        //光标移到下一个段落
         cursor.toNextSibling();
         XWPFParagraph p = document.insertNewParagraph(cursor);
         cloneParagraph(p, paragraph);
@@ -550,7 +556,7 @@ public class WordTemplateUtil {
         if (ObjectUtils.notEqual(run1.getFontFamily(), run2.getFontFamily())) {
             return false;
         }
-        if (ObjectUtils.notEqual(run1.getFontSize(), run2.getFontSize())) {
+        if (ObjectUtils.notEqual(run1.getFontSizeAsDouble(), run2.getFontSizeAsDouble())) {
             return false;
         }
         if (ObjectUtils.notEqual(run1.isImprinted(), run2.isImprinted())) {
@@ -573,9 +579,6 @@ public class WordTemplateUtil {
         if (ObjectUtils.notEqual(run1.isStrikeThrough(), run2.isStrikeThrough())) {
             return false;
         }
-        if (ObjectUtils.notEqual(run1.getSubscript(), run2.getSubscript())) {
-            return false;
-        }
         if (ObjectUtils.notEqual(run1.getTextPosition(), run2.getTextPosition())) {
             return false;
         }
@@ -585,10 +588,7 @@ public class WordTemplateUtil {
         if (ObjectUtils.notEqual(run1.getCTR().getRPr().toString(), run2.getCTR().getRPr().toString())) {
             return false;
         }
-        if (run1.getText(0) == null || run2.getText(0) == null) {
-            return false;
-        }
-        return true;
+        return run1.getText(0) != null && run2.getText(0) != null;
     }
 
     public static void saveXml(XWPFDocument document, String xmlPath) {
@@ -601,16 +601,12 @@ public class WordTemplateUtil {
                 + xml
                 + "</w:wordDocument>";
 
-        try {
-            byte[] bytes = xml.getBytes("utf-8");
-            try (OutputStream out = new BufferedOutputStream(new FileOutputStream(xmlPath, false))) {
-                out.write(bytes);
-            } catch (IOException e) {
-                log.error("写入文件异常", e);
-                throw new RuntimeException("写入文件异常", e);
-            }
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
+        byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+        try (OutputStream out = new BufferedOutputStream(new FileOutputStream(xmlPath, false))) {
+            out.write(bytes);
+        } catch (IOException e) {
+            log.error("写入文件异常", e);
+            throw new RuntimeException("写入文件异常", e);
         }
 
     }
@@ -633,16 +629,12 @@ public class WordTemplateUtil {
                 "<pkg:xmlData>" + xml + "</pkg:xmlData>\n" +
                 "</pkg:part>\n" +
                 "</pkg:package>";
-        try {
-            byte[] bytes = xml.getBytes("utf-8");
-            try (OutputStream out = new BufferedOutputStream(new FileOutputStream(xmlPath, false))) {
-                out.write(bytes);
-            } catch (IOException e) {
-                log.error("写入文件异常", e);
-                throw new RuntimeException("写入文件异常", e);
-            }
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
+        byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+        try (OutputStream out = new BufferedOutputStream(new FileOutputStream(xmlPath, false))) {
+            out.write(bytes);
+        } catch (IOException e) {
+            log.error("写入文件异常", e);
+            throw new RuntimeException("写入文件异常", e);
         }
 
     }
@@ -650,22 +642,23 @@ public class WordTemplateUtil {
     /**
      * 加载xml或doc文件，xml最好是由该工具导出，不然会有一些格式丢失。
      *
-     * @param filePath
-     * @return
+     * @param filePath word文件路径
+     * @return 返回word文档
      */
     public static XWPFDocument load(String filePath) {
         try {
             if (filePath.toLowerCase().endsWith(".docx")) {
-                return new XWPFDocument(new FileInputStream(filePath));
+                return new XWPFDocument(Files.newInputStream(Paths.get(filePath)));
             } else if (filePath.toLowerCase().endsWith(".xml")) {
                 SAXReader saxReader = new SAXReader();
                 Document document = saxReader.read(new File(filePath));
-                Element element = document.getRootElement().elements().stream().filter(m -> m.attribute("name").getText().equals("/word/document.xml")).findFirst().orElse(null);
+                Element element = document.getRootElement().elements().stream().filter(m -> "/word/document.xml".equals(m.attribute("name").getText())).findFirst().orElse(null);
                 if (element != null) {
                     element = element.element("xmlData").element("document");
                 } else {
                     element = document.getRootElement().elements().stream().findFirst().orElse(null);
                 }
+                assert element != null;
                 element.setName("xml-fragment");
                 XWPFDocument xwpfDocument = new XWPFDocument();
                 CTDocument1 ctDocument1 = CTDocument1.Factory.parse(element.asXML());

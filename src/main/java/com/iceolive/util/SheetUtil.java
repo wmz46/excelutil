@@ -3,11 +3,11 @@ package com.iceolive.util;
 import com.iceolive.util.model.CellImages;
 import com.iceolive.util.model.CellImagesRels;
 import com.iceolive.xpathmapper.XPathMapper;
-import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.openxml4j.opc.PackagePart;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.PictureData;
 import org.apache.poi.xssf.usermodel.XSSFPictureData;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -30,12 +30,12 @@ public class SheetUtil {
     public static boolean isDateCell(Cell cell){
 
         if (null != cell) {
-            CellType cellType = cell.getCellTypeEnum();
+            CellType cellType = cell.getCellType();
             //支持公式单元格
             if (cellType == CellType.FORMULA) {
-                cellType = cell.getCachedFormulaResultTypeEnum();
+                cellType = cell.getCachedFormulaResultType();
             }
-            if(cellType == CellType.NUMERIC && HSSFDateUtil.isCellDateFormatted(cell)){
+            if(cellType == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)){
                 return true;
             }
         }
@@ -51,14 +51,14 @@ public class SheetUtil {
         String dateFormat = "yyyy-MM-dd HH:mm:ss";
         if (null != cell) {
             String str = null;
-            CellType cellType = cell.getCellTypeEnum();
+            CellType cellType = cell.getCellType();
             //支持公式单元格
             if (cellType == CellType.FORMULA) {
-                cellType = cell.getCachedFormulaResultTypeEnum();
+                cellType = cell.getCachedFormulaResultType();
             }
             switch (cellType) {
                 case NUMERIC:
-                    if (HSSFDateUtil.isCellDateFormatted(cell)) {
+                    if (DateUtil.isCellDateFormatted(cell)) {
                         str = StringUtil.format(cell.getDateCellValue(), dateFormat);
                     } else {
                         BigDecimal bd = new BigDecimal(String.valueOf(cell.getNumericCellValue()));
