@@ -19,12 +19,14 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import javax.el.ExpressionFactory;
 import javax.el.StandardELContext;
 import javax.el.ValueExpression;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,7 +38,8 @@ public class WordTemplateUtil {
 
     static Pattern tplReg = Pattern.compile("[$@]\\{(.*?)}");
     static Pattern strTplReg = Pattern.compile("\\$\\{(.+?)}");
-    static Pattern imgTplReg = Pattern.compile("@\\{([^:]+?):(\\d+)\\*(\\d+)}");
+    static Pattern imgTplReg = Pattern.compile("@\\{(.+?)}");
+    static Pattern imgExtTplReg = Pattern.compile("@\\{([^:]+?):(\\d+)\\*(\\d+)}");
     static Pattern varReg = Pattern.compile("([$_a-zA-Z0-9.\\[\\]]+)$");
 
 
@@ -258,15 +261,15 @@ public class WordTemplateUtil {
             if (start > 0) {
                 strings.add(temp.substring(0, start));
             }
-            strings.add(temp.substring(start, end+1));
+            strings.add(temp.substring(start, end + 1));
             temp = temp.substring(end + 1);
         }
         if (!strings.isEmpty()) {
-            run.setText(strings.get(0),0);
+            run.setText(strings.get(0), 0);
             runs.add(run);
             for (int i = 1; i < strings.size(); i++) {
                 XWPFRun newRun = addCloneRun(paragraph, run);
-                newRun.setText(strings.get(i),0);
+                newRun.setText(strings.get(i), 0);
                 runs.add(newRun);
             }
         }
@@ -275,15 +278,59 @@ public class WordTemplateUtil {
             String value = item.getText(item.getTextPosition());
             Matcher matcher = imgTplReg.matcher(value);
             if (matcher.find()) {
-                BufferedImage val = (BufferedImage) eval(matcher.group(1), variables);
-                byte[] bytes = ImageUtil.Image2Bytes(val, "png");
-                try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
-                    item.setText("",0);
-                    item.addPicture(inputStream, XWPFDocument.PICTURE_TYPE_PNG, "", Units.pixelToEMU(Integer.parseInt(matcher.group(2))),
-                            Units.pixelToEMU(Integer.parseInt(matcher.group(3))));
-                } catch (Exception e) {
-                    log.error(e.toString(), e);
+                Matcher matcher2  = imgExtTplReg.matcher(value);
+                boolean hasExt = matcher2.find();
+                int width = 0;
+                int height = 0;
+                String cmd;
+                if(hasExt){
+                    cmd = matcher2.group(1);
+                    width = Integer.parseInt(matcher2.group(2));
+                    height = Integer.parseInt(matcher2.group(3));
+                }else{
+                    cmd = matcher.group(1);
                 }
+                Object val = eval(cmd, variables);
+                byte[] bytes = null;
+                if (val instanceof BufferedImage) {
+                    if(!hasExt){
+                        width = ((BufferedImage) val).getWidth();
+                        height = ((BufferedImage) val).getHeight();
+                    }
+                    bytes = ImageUtil.Image2Bytes((BufferedImage) val, "png");
+                } else if (val instanceof byte[]) {
+                    bytes = (byte[]) val;
+                    if(!hasExt){
+                        BufferedImage bufferedImage = ImageUtil.Bytes2Image(bytes);
+                        width = bufferedImage.getWidth();
+                        height = bufferedImage.getHeight();
+                    }
+                }else if(val instanceof String){
+                    //判断是否是base64
+                    if(val.toString().startsWith("data:image")){
+                        bytes = Base64.getDecoder().decode(val.toString().replaceAll("data:image/.*;base64,",""));
+                    }else{
+                        bytes = Base64.getDecoder().decode(val.toString());
+                    }
+                    if(!hasExt){
+                        BufferedImage bufferedImage = ImageUtil.Bytes2Image(bytes);
+                        width = bufferedImage.getWidth();
+                        height = bufferedImage.getHeight();
+                    }
+                }
+                if(bytes != null){
+                    try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+                        item.setText("", 0);
+                        item.addPicture(inputStream, XWPFDocument.PICTURE_TYPE_PNG, "", Units.pixelToEMU(width),
+                                Units.pixelToEMU(height));
+                    } catch (Exception e) {
+                        log.error(e.toString(), e);
+                    }
+                }else{
+                    item.setText("", 0);
+                }
+
+
             }
 
         }

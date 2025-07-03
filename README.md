@@ -1,5 +1,7 @@
 # excelutil
 基于java的excle工具类，主要是导入excel的前置校验工作。
+
+# [按模板导出word](./doc/WordTemplateUtil.md)
 ## 一、当前最新版本
 ```xml
 <dependency>
@@ -42,17 +44,31 @@ public class TestModel {
 
 最简参数调用
 ```java
-ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文件路径,也传excle文件的字节数组byte[],支持xls和xlsx。
-                 TestModel.class,//中间类类型
-                true//是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
-               );
+ImportResult importResult =  ExcelUtil.importExcel(ExcelImportConfig.<TestModel>builder()
+        //中间类类型
+        .clazz(TestModel.class)
+        //excle文件路径, 支持xls和xlsx。
+        .filepath(filepath)
+        //是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
+        .faultTolerant(true)
+        .build()); 
 ```
 全参数调用
 ```java
- ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文件路径,也传excle文件的字节数组byte[],支持xls和xlsx。
-                 TestModel.class,//中间类类型
-                true,//是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
-                1,//开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
+ ImportResult importResult =  ExcelUtil.importExcel(ExcelImportConfig.<TestModel>builder()
+        //excle文件路径, 支持xls和xlsx。
+        .filepath(filepath)
+        //中间类类型
+        .clazz(TestModel.class)
+        //是否容错处理，false则全部数据验证必须通过才执行入库操作，且入库操作只要没返回true，则不继续执行。true则只会对验证成功的记录进行入库操作，入库操作失败不影响后面的入库。
+        .faultTolerant(true)
+        //开始行数，从1开始，当第一行是标题，则传1，当第二行是标题则传2。
+        .startRow(1)
+        //导出工作表索引
+        .sheetIndex(0)
+        //是否只有数据，当true时，startRow为数据开始行
+        .onlyData(false)
+        .customValidateFunc(
                 m -> {
                 //m为中间类对象
                 //这里写自定义验证，比如身份证等用自定义注解无法验证的方法，不需要的话，此参数传null，或返回null或空list
@@ -63,7 +79,8 @@ ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文�
                         list.add(new ValidateResult("name", "用户不姓王"));
                     }
                    return list; 
-                }, m -> {
+                })
+        .importFunc(m -> {
                     //m为中间类对象
                     //这里写入库操作，返回true，则表示入库成功，如果入参出错，请抛异常，框架会捕获异常，错误信息为异常的getMessage()
                     boolean insertDBSuccess = yourInsertFunc(m);
@@ -72,7 +89,7 @@ ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文�
                     }else{
                         throw new Exception("入库失败")
                     } 
-                });
+                }));
 ```
  
 ### 3.返回结果
@@ -142,14 +159,15 @@ ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",//excle文�
 4.2 调用
 ```java
 String schemaJson = yourLoadTextFromFile("schema.json")
- ImportResult importResult =  ExcelUtil.importExcel("D://result.xlsx",  TestModel.class,true, 0,
-        m -> {
+ ImportResult importResult =  ExcelUtil.importExcel(ExcelImportConfig.<TestModel>builder()
+        .filename("D://result.xlsx")
+        .clazz(TestModel.class)
+        .faultTolerant(true)
+        .startRow(1)
+        .customValidateFunc(m -> {
          return ExcelUtil.jsonSchemaValidate(schemaJson, m)
            return list; 
-        },
-        m->{
-            return true;
-        });
+        }));
 ```
 ## 三、开发背景
 项目起源是我想设计一个工具类，作为导入excel数据的通用处理工具。    
@@ -164,3 +182,4 @@ String schemaJson = yourLoadTextFromFile("schema.json")
 ### 1.沿用spring的验证validation-api，减低学习成本
 ### 2.支持直接写自定义验证方法，方便扩展。
 ### 3.与数据库无关，你可以自己实现自己的持久化操作。
+### 4.支持图片导入
