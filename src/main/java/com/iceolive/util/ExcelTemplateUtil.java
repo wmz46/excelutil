@@ -71,8 +71,11 @@ public class ExcelTemplateUtil {
     }
 
     public static void fillData(XSSFWorkbook workbook, Map<String, Object> variables ) {
+          fillData(workbook,0,variables);
+    }
+    public static void fillData(XSSFWorkbook workbook,int sheetIndex, Map<String, Object> variables ) {
         try {
-            XSSFSheet sheet = workbook.getSheetAt(0);
+            XSSFSheet sheet = workbook.getSheetAt(sheetIndex);
             int rowCount = sheet.getPhysicalNumberOfRows();
             boolean hasCreateRow = false;
             for (int r = rowCount - 1; r >= 0; r--) {
