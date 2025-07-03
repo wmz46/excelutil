@@ -4,6 +4,7 @@ package com.iceolive.util;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
 import org.apache.xmlbeans.XmlException;
@@ -18,6 +19,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import javax.el.ExpressionFactory;
 import javax.el.StandardELContext;
 import javax.el.ValueExpression;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -32,7 +34,9 @@ import java.util.regex.Pattern;
 @Slf4j
 public class WordTemplateUtil {
 
-    static Pattern tplReg = Pattern.compile("\\$\\{(.*?)}");
+    static Pattern tplReg = Pattern.compile("[$@]\\{(.*?)}");
+    static Pattern strTplReg = Pattern.compile("\\$\\{(.+?)}");
+    static Pattern imgTplReg = Pattern.compile("@\\{([^:]+?):(\\d+)\\*(\\d+)}");
     static Pattern varReg = Pattern.compile("([$_a-zA-Z0-9.\\[\\]]+)$");
 
 
@@ -169,11 +173,9 @@ public class WordTemplateUtil {
                     CTR ctr = CTR.Factory.parse(obj.xmlText());
                     //CTR ctr = CTR.Factory.parse(obj.newInputStream());
                     XWPFRun run = new XWPFRun(ctr, (IRunBody) paragraph);
-                    replaceRun(run, variables);
+                    replaceRun(run, paragraph, variables);
                     obj.set(run.getCTR());
                 }
-
-
                 replaceParagraph(paragraph, variables);
 
 
@@ -201,7 +203,7 @@ public class WordTemplateUtil {
                 }
             }
         } catch (Exception e) {
-            log.error(e.getMessage(),e);
+            log.error(e.getMessage(), e);
         }
 
     }
@@ -219,9 +221,9 @@ public class WordTemplateUtil {
         }
     }
 
-    private static void replaceRun(XWPFRun run, Map<String, Object> variables) {
+    private static void replaceRun(XWPFRun run, XWPFParagraph paragraph, Map<String, Object> variables) {
         String text = run.getText(run.getTextPosition());
-        Matcher matcher = tplReg.matcher(text);
+        Matcher matcher = strTplReg.matcher(text);
         String value = text;
         while (matcher.find()) {
             try {
@@ -230,12 +232,62 @@ public class WordTemplateUtil {
                 if (val != null) {
                     s = String.valueOf(val);
                 }
-                value = value.replace("${" + matcher.group(1) + "}", s);
-                run.setText(value, 0);
+                value = value.replace(matcher.group(0), s);
             } catch (Exception e) {
                 log.error(e.toString());
             }
         }
+        run.setText(value, 0);
+        insertImage(run, 0, paragraph, variables);
+
+    }
+
+    private static void insertImage(XWPFRun run, int pos, XWPFParagraph paragraph, Map<String, Object> variables) {
+        String text = run.getText(run.getTextPosition());
+        //判断text中 @{ 的数量
+        int count = text.split("@\\{").length - 1;
+        if (count == 0) {
+            return;
+        }
+        List<String> strings = new ArrayList<>();
+        List<XWPFRun> runs = new ArrayList<>();
+        String temp = text;
+        while (!temp.isEmpty()) {
+            int start = temp.indexOf("@{");
+            int end = temp.indexOf("}");
+            if (start > 0) {
+                strings.add(temp.substring(0, start));
+            }
+            strings.add(temp.substring(start, end+1));
+            temp = temp.substring(end + 1);
+        }
+        if (!strings.isEmpty()) {
+            run.setText(strings.get(0),0);
+            runs.add(run);
+            for (int i = 1; i < strings.size(); i++) {
+                XWPFRun newRun = addCloneRun(paragraph, run);
+                newRun.setText(strings.get(i),0);
+                runs.add(newRun);
+            }
+        }
+        for (int i = runs.size() - 1; i >= 0; i--) {
+            XWPFRun item = runs.get(i);
+            String value = item.getText(item.getTextPosition());
+            Matcher matcher = imgTplReg.matcher(value);
+            if (matcher.find()) {
+                BufferedImage val = (BufferedImage) eval(matcher.group(1), variables);
+                byte[] bytes = ImageUtil.Image2Bytes(val, "png");
+                try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+                    item.setText("",0);
+                    item.addPicture(inputStream, XWPFDocument.PICTURE_TYPE_PNG, "", Units.pixelToEMU(Integer.parseInt(matcher.group(2))),
+                            Units.pixelToEMU(Integer.parseInt(matcher.group(3))));
+                } catch (Exception e) {
+                    log.error(e.toString(), e);
+                }
+            }
+
+        }
+
     }
 
 
@@ -244,10 +296,11 @@ public class WordTemplateUtil {
         int length = runs.size();
         //由于可能增加换行，从后面开始循环
         for (int i = length - 1; i >= 0; i--) {
-            String text = runs.get(i).getText(runs.get(i).getTextPosition());
+            XWPFRun item = runs.get(i);
+            String text = item.getText(item.getTextPosition());
 
-            if (text != null) {
-                Matcher matcher = tplReg.matcher(text);
+            if (StringUtil.isNotBlank(text)) {
+                Matcher matcher = strTplReg.matcher(text);
                 String value = text;
                 while (matcher.find()) {
                     try {
@@ -256,7 +309,7 @@ public class WordTemplateUtil {
                         if (val != null) {
                             s = String.valueOf(val);
                         }
-                        value = value.replace("${" + matcher.group(1) + "}", s);
+                        value = value.replace(matcher.group(0), s);
 
                         if (value.contains("\n")) {
                             RunProps runProps = getRunProps(paragraph.getRuns().get(i));
@@ -267,7 +320,7 @@ public class WordTemplateUtil {
                                 setRunProps(run, runProps);
                                 if (j != 0) {
                                     run.addBreak(BreakClear.ALL);
-                                    if(paragraph.getFirstLineIndent()!=0){
+                                    if (paragraph.getFirstLineIndent() != 0) {
                                         run.addTab();
                                     }
                                 }
@@ -282,6 +335,16 @@ public class WordTemplateUtil {
                 }
             }
         }
+        //处理图片
+        runs = paragraph.getRuns();
+        length = runs.size();
+        for (int i = length - 1; i >= 0; i--) {
+            XWPFRun run = runs.get(i);
+            String text = run.getText(run.getTextPosition());
+            if (StringUtil.isNotBlank(text)) {
+                insertImage(run, i, paragraph, variables);
+            }
+        }
     }
 
     private static void format(XWPFDocument document) {
@@ -290,10 +353,10 @@ public class WordTemplateUtil {
             //遍历段落
             while (itPara.hasNext()) {
                 XWPFParagraph paragraph = itPara.next();
-                List<XWPFRun> run = paragraph.getRuns();
-                for (int i = run.size() - 1; i > 0; i--) {
-                    if (isSameFormat(run.get(i - 1), run.get(i))) {
-                        run.get(i - 1).setText(run.get(i - 1).getText(run.get(i - 1).getTextPosition()) + run.get(i).getText(run.get(i).getTextPosition()), 0);
+                List<XWPFRun> runs = paragraph.getRuns();
+                for (int i = runs.size() - 1; i > 0; i--) {
+                    if (isSameFormat(runs.get(i - 1), runs.get(i))) {
+                        runs.get(i - 1).setText(runs.get(i - 1).getText(runs.get(i - 1).getTextPosition()) + runs.get(i).getText(runs.get(i).getTextPosition()), 0);
                         paragraph.removeRun(i);
                     }
                 }
@@ -326,7 +389,7 @@ public class WordTemplateUtil {
                 }
             }
         } catch (Exception e) {
-            log.error(e.getMessage(),e);
+            log.error(e.getMessage(), e);
         }
     }
 
@@ -363,7 +426,7 @@ public class WordTemplateUtil {
         run.setShadow(props.isShadow());
         run.setImprinted(props.isImprinted());
         run.setEmbossed(props.isEmbossed());
-        if(props.getVerticalAlignment()!=null) {
+        if (props.getVerticalAlignment() != null) {
             run.setVerticalAlignment(props.getVerticalAlignment().toString().toLowerCase());
         }
         run.setKerning(props.getKerning());
@@ -412,7 +475,7 @@ public class WordTemplateUtil {
         r.setEmbossed(run.isEmbossed());
         r.setKerning(run.getKerning());
         r.setFontFamily(run.getFontFamily());
-        if(run.getFontSizeAsDouble()!=null) {
+        if (run.getFontSizeAsDouble() != null) {
             r.setFontSize(run.getFontSizeAsDouble());
         }
         r.setTextPosition(run.getTextPosition());
@@ -585,7 +648,7 @@ public class WordTemplateUtil {
         if (ObjectUtils.notEqual(run1.getUnderline(), run2.getUnderline())) {
             return false;
         }
-        if (ObjectUtils.notEqual(run1.getCTR().getRPr().toString(), run2.getCTR().getRPr().toString())) {
+        if (ObjectUtils.notEqual(run1.getCTR().getRPr().toString().replaceAll("w:hint=\"[^\"]*\"", ""), run2.getCTR().getRPr().toString().replaceAll("w:hint=\"[^\"]*\"", ""))) {
             return false;
         }
         return run1.getText(0) != null && run2.getText(0) != null;

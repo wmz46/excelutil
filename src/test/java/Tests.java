@@ -250,22 +250,25 @@ public class Tests {
     }
 
     @Test
-    public void test8() {
+    public void test8() throws IOException {
         String filepath = System.getProperty("user.dir") + "//testdata//wordtpl.docx";
         Map<String, Object> map = new HashMap<>();
         List<Map<String, Object>> list = new ArrayList<>();
         list.add(new HashMap<String, Object>() {{
             put("name", "语文");
             put("score", "99");
+            put("image",ImageIO.read(new File(System.getProperty("user.dir") + "//testdata//20230627153447277.png")));
         }});
         list.add(new HashMap<String, Object>() {{
             put("name", "数学");
             put("score", "100");
+            put("image",ImageIO.read(new File(System.getProperty("user.dir") + "//testdata//20230627153447823.png")));
         }});
         map.put("name", "张三");
         map.put("age", "20");
         map.put("desc", "换行\n换行\n换行");
         map.put("course", list);
+        map.put("image",ImageIO.read(new File(System.getProperty("user.dir") + "//testdata//20230627153447850.png")));
         XWPFDocument doc = WordTemplateUtil.load(filepath);
         WordTemplateUtil.fillData(doc, map);
         WordTemplateUtil.save(doc, System.getProperty("user.dir") + "//testdata//result.docx");
