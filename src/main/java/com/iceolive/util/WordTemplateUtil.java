@@ -19,7 +19,6 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import javax.el.ExpressionFactory;
 import javax.el.StandardELContext;
 import javax.el.ValueExpression;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -37,10 +36,17 @@ import java.util.regex.Pattern;
 public class WordTemplateUtil {
 
     static Pattern tplReg = Pattern.compile("[$@]\\{(.*?)}");
-    static Pattern strTplReg = Pattern.compile("\\$\\{(.+?)}");
-    static Pattern imgTplReg = Pattern.compile("@\\{(.+?)}");
-    static Pattern imgExtTplReg = Pattern.compile("@\\{([^:]+?):(\\d+)\\*(\\d+)}");
+    static Pattern strTplReg = Pattern.compile("\\$\\{(.+?)(?:#col)?}");
+    static Pattern imgTplReg = Pattern.compile("@\\{(.+?)(?:#col)?}");
+    static Pattern imgExtTplReg = Pattern.compile("@\\{([^:]+?):(\\d+)\\*(\\d+)(?:#col)?}");
     static Pattern varReg = Pattern.compile("([$_a-zA-Z0-9.\\[\\]]+)$");
+    /**
+     * 列循环配置
+     */
+    static String colStr = "#col";
+
+    static Pattern ifReg = Pattern.compile("\\{\\{\\s.#if\\s+(.*)\\s.}}");
+    static Pattern endIfReg = Pattern.compile("\\{\\{\\s./if\\s.}}");
 
 
     public static byte[] doc2bytes(XWPFDocument document) {
@@ -59,6 +65,11 @@ public class WordTemplateUtil {
 
     }
 
+    /**
+     * 保存到文件系统
+     * @param document word文档
+     * @param path 保存路径
+     */
     public static void save(XWPFDocument document, String path) {
         byte[] bytes = doc2bytes(document);
         try (OutputStream out = new BufferedOutputStream(new FileOutputStream(path, false))) {
@@ -68,10 +79,12 @@ public class WordTemplateUtil {
             throw new RuntimeException("写入文件异常", e);
         }
     }
+
     public static void fillData(XWPFDocument document, Object variables) {
         fillData(document, BeanUtil.beanToMapShallow(variables));
     }
-    public static void fillData(XWPFDocument document, Map<String,Object> variables) {
+
+    public static void fillData(XWPFDocument document, Map<String, Object> variables) {
         try {
             format(document);
             List<XWPFParagraph> paragraphs = document.getParagraphs();
@@ -130,37 +143,74 @@ public class WordTemplateUtil {
                                     continue;
                                 }
                                 String listName = matcher1.group(1);
-
                                 List<?> jsonArray = (List<?>) eval(listName, variables);
-                                if (jsonArray == null || jsonArray.isEmpty()) {
-                                    //如果列表为空，则清除整个单元格
-                                    for (XWPFParagraph paragraph : cell.getParagraphs()) {
-                                        for (XWPFRun run : paragraph.getRuns()) {
-                                            run.setText("", 0);
+                                if (tpl.endsWith(colStr)) {
+                                    //列循环
+                                    if (jsonArray == null || jsonArray.isEmpty()) {
+                                        //如果列表为空，则清除整个单元格
+                                        for (XWPFParagraph paragraph : cell.getParagraphs()) {
+                                            for (XWPFRun run : paragraph.getRuns()) {
+                                                run.setText("", 0);
+                                            }
+                                        }
+                                    } else {
+                                        CTRow ctRow = row.getCtRow();
+                                        for (int i = 1; i < jsonArray.size(); i++) {
+                                            CTTc newTc = ctRow.insertNewTc(c + 1);
+                                            XWPFTableCell newCell = new XWPFTableCell(newTc, row, table.getBody());
+                                            cloneCellStyle(cell, newCell);
+                                            for (XWPFParagraph paragraph : cell.getParagraphs()) {
+                                                XWPFParagraph p = newCell.addParagraph();
+                                                cloneParagraph(p, paragraph);
+                                            }
+                                        }
+                                        //刷新XWPFTableRow的单元格缓存
+                                        row.getTableCells().clear();
+                                        for (CTTc tc : ctRow.getTcList()) {
+                                            row.getTableCells().add(new XWPFTableCell(tc, row,table.getBody()));
+                                        }
+
+                                        //填充列表下标
+                                        for (int i = 0; i < jsonArray.size(); i++) {
+                                            XWPFTableCell tmpCell = row.getCell(c + i);
+                                            for (XWPFParagraph paragraph : tmpCell.getParagraphs()) {
+                                                replaceListParagraph(paragraph, listName, i);
+                                            }
                                         }
                                     }
                                 } else {
-                                    if (jsonArray.size() > 1 && !hasCreateRow) {
-                                        //如果列表大于1行，则根据列表长度-1添加行，添加行操作只操作一次
-                                        for (int num = 1; num < jsonArray.size(); num++) {
-                                            addCloneRow(table, row, r + 1);
+                                    //行循环
+                                    if (jsonArray == null || jsonArray.isEmpty()) {
+                                        //如果列表为空，则清除整个单元格
+                                        for (XWPFParagraph paragraph : cell.getParagraphs()) {
+                                            for (XWPFRun run : paragraph.getRuns()) {
+                                                run.setText("", 0);
+                                            }
                                         }
-                                        hasCreateRow = true;
-                                    }
-                                    //填充列表下标
-                                    for (int num = 0; num < jsonArray.size(); num++) {
-                                        XWPFTableCell tmpCell = table.getRow(r + num).getCell(c);
-                                        for (XWPFParagraph paragraph : tmpCell.getParagraphs()) {
-                                            replaceListParagraph(paragraph, listName, num);
+                                    } else {
+                                        if (jsonArray.size() > 1 && !hasCreateRow) {
+                                            //如果列表大于1行，则根据列表长度-1添加行，添加行操作只操作一次
+                                            for (int num = 1; num < jsonArray.size(); num++) {
+                                                addCloneRow(table, row, r + 1);
+                                            }
+                                            hasCreateRow = true;
+                                        }
+                                        //填充列表下标
+                                        for (int num = 0; num < jsonArray.size(); num++) {
+                                            XWPFTableCell tmpCell = table.getRow(r + num).getCell(c);
+                                            for (XWPFParagraph paragraph : tmpCell.getParagraphs()) {
+                                                replaceListParagraph(paragraph, listName, num);
+                                            }
                                         }
                                     }
                                 }
+
+
                             }
                         }
                     }
                 }
             }
-
 
             //替换段落变量
             for (int i = document.getParagraphs().size() - 1; i >= 0; i--) {
@@ -219,14 +269,15 @@ public class WordTemplateUtil {
         for (int i = length - 1; i >= 0; i--) {
             String text = runs.get(i).getText(runs.get(i).getTextPosition());
             if (text != null) {
-                String newText = text.replace(listName + "[]", listName + "[" + num + "]");
+                String newText = text.replace(listName + "[].#index",num+"");
+                newText = newText.replace(listName + "[]", listName + "[" + num + "]");
                 runs.get(i).setText(newText, 0);
             }
 
         }
     }
 
-    private static void replaceRun(XWPFRun run, XWPFParagraph paragraph, Map<String,Object> variables) {
+    private static void replaceRun(XWPFRun run, XWPFParagraph paragraph, Map<String, Object> variables) {
         String text = run.getText(run.getTextPosition());
         Matcher matcher = strTplReg.matcher(text);
         String value = text;
@@ -247,7 +298,7 @@ public class WordTemplateUtil {
 
     }
 
-    private static void insertImage(XWPFRun run, int pos, XWPFParagraph paragraph, Map<String,Object> variables) {
+    private static void insertImage(XWPFRun run, int pos, XWPFParagraph paragraph, Map<String, Object> variables) {
         String text = run.getText(run.getTextPosition());
         //判断text中 @{ 的数量
         int count = text.split("@\\{").length - 1;
@@ -340,7 +391,7 @@ public class WordTemplateUtil {
     }
 
 
-    private static void replaceParagraph(XWPFParagraph paragraph, Map<String,Object> variables) {
+    private static void replaceParagraph(XWPFParagraph paragraph, Map<String, Object> variables) {
         List<XWPFRun> runs = paragraph.getRuns();
         int length = runs.size();
         //由于可能增加换行，从后面开始循环
@@ -379,7 +430,7 @@ public class WordTemplateUtil {
                             runs.get(i).setText(value, 0);
                         }
                     } catch (Exception e) {
-                        log.error(e.toString());
+                        log.error(e.toString(),e);
                     }
                 }
             }
@@ -541,7 +592,7 @@ public class WordTemplateUtil {
             XWPFTableCell newCell = newRow.addNewTableCell();
             //新行需要清除第一个段落
             newCell.removeParagraph(0);
-            cloneCell(tableCell, newCell);
+            cloneCellStyle(tableCell, newCell);
             for (XWPFParagraph paragraph : tableCell.getParagraphs()) {
                 XWPFParagraph p = newCell.addParagraph();
                 cloneParagraph(p, paragraph);
@@ -550,7 +601,7 @@ public class WordTemplateUtil {
         return newRow;
     }
 
-    private static void cloneCell(XWPFTableCell cell, XWPFTableCell newCell) {
+    private static void cloneCellStyle(XWPFTableCell cell, XWPFTableCell newCell) {
         CTTc ctTc = cell.getCTTc();
         CTTcPr tcPr = ctTc.getTcPr();
         if (tcPr != null) {

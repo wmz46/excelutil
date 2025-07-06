@@ -47,18 +47,42 @@ ${description}  ${main_image.name}
 @{main_image.data:100*200}
 @{main_image.data} //不指定尺寸，将按原图尺寸输出
 ```
-### 循环
-目前循环只支持在表格内单行循环或表格外单段落循环。只支持单层列表循环。
-
-多段落循环请使用单列单行表格曲线实现。
-
+### 表格单行循环
+使用`列表变量[].#index`获取当前循环索引    
+**不支持多行循环**
 ```txt
-| 字符串           | 图片                             |
-| ${items[].name} | @{items[].image_base64:100*200} |
+| 行号 | 字符串           | 图片                             |
+| ${item[].#index+1}  | ${items[].name} | @{items[].image_base64:100*200} |
 ```
 
-### 表格列循环（开发中）
+### 表格单列循环
+使用`列表变量[].#index`获取当前循环索引    
+**不支持多列循环**
 ```txt
+|  序号 |  ${item[].#index+1#col}                    |
 | 字符串 |  ${items[].name#col}            |
 | 图片   | @{items[].image_base64:100*200#col} |
+```
+### 单段落循环
+使用`列表变量[].#index`获取当前循环索引    
+**不支持多段落循环，如需多段落循环，可通过单列无边框表格或块级循环实现。**
+```txt
+${#index}   ${items[].name}   @{items[].image_base64:100*200}
+```
+### 块级条件（开发中）
+```txt
+{{#if name == '张三'}}
+
+{{/if}}
+
+```
+### 块级循环（开发中）
+```txt
+{{for item,i in items}}
+{{i}} {{item.name}}
+{{/for}}
+或
+{{for item in items}}
+{{item.name}}
+{{/for}}
 ```
