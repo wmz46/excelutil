@@ -45,8 +45,10 @@ public class WordTemplateUtil {
      */
     static String colStr = "#col";
 
-    static Pattern ifReg = Pattern.compile("\\{\\{\\s.#if\\s+(.*)\\s.}}");
-    static Pattern endIfReg = Pattern.compile("\\{\\{\\s./if\\s.}}");
+    static Pattern ifReg = Pattern.compile("\\{\\{\\s*#if\\s+([^}]*)}}");
+    static Pattern endIfReg = Pattern.compile("\\{\\{\\s*/if\\s*}}");
+    static Pattern forReg = Pattern.compile("\\{\\{\\s*#for\\s+([^}]*)}}");
+    static Pattern endForReg = Pattern.compile("\\{\\{\\s*/for\\s*}}");
 
 
     public static byte[] doc2bytes(XWPFDocument document) {
@@ -87,6 +89,8 @@ public class WordTemplateUtil {
     public static void fillData(XWPFDocument document, Map<String, Object> variables) {
         try {
             format(document);
+            //处理块
+            processBlock(document);
             List<XWPFParagraph> paragraphs = document.getParagraphs();
             //段落判断是否有[]，有则循环段落
             //这里必须使用for-i 循环，不允许用forIn代替，否则会报错
@@ -167,7 +171,7 @@ public class WordTemplateUtil {
                                         //刷新XWPFTableRow的单元格缓存
                                         row.getTableCells().clear();
                                         for (CTTc tc : ctRow.getTcList()) {
-                                            row.getTableCells().add(new XWPFTableCell(tc, row,table.getBody()));
+                                            row.getTableCells().add(new XWPFTableCell(tc, row, table.getBody()));
                                         }
 
                                         //填充列表下标
@@ -269,7 +273,7 @@ public class WordTemplateUtil {
         for (int i = length - 1; i >= 0; i--) {
             String text = runs.get(i).getText(runs.get(i).getTextPosition());
             if (text != null) {
-                String newText = text.replace(listName + "[].#index",num+"");
+                String newText = text.replace(listName + "[].#index", num + "");
                 newText = newText.replace(listName + "[]", listName + "[" + num + "]");
                 runs.get(i).setText(newText, 0);
             }
@@ -430,7 +434,7 @@ public class WordTemplateUtil {
                             runs.get(i).setText(value, 0);
                         }
                     } catch (Exception e) {
-                        log.error(e.toString(),e);
+                        log.error(e.toString(), e);
                     }
                 }
             }
@@ -447,6 +451,83 @@ public class WordTemplateUtil {
         }
     }
 
+    /**
+     * 处理块
+     */
+    private static void processBlock(XWPFDocument document) {
+        Iterator<XWPFParagraph> itPara = document.getParagraphsIterator();
+        while (itPara.hasNext()) {
+            XWPFParagraph paragraph = itPara.next();
+            List<XWPFRun> runs = paragraph.getRuns();
+            for (int i = runs.size() - 1; i >= 0; i--) {
+                XWPFRun run = runs.get(i);
+                String text = run.getText(run.getTextPosition());
+
+                if (StringUtil.isNotBlank(text)) {
+                    List<String> result = new ArrayList<>();
+                    int lastIndex = 0;
+
+                    while (lastIndex < text.length()) {
+                        // 尝试匹配所有Pattern，找到最先出现的
+                        Matcher ifMatcher = ifReg.matcher(text);
+                        Matcher endIfMatcher = endIfReg.matcher(text);
+                        Matcher forMatcher = forReg.matcher(text);
+                        Matcher endForMatcher = endForReg.matcher(text);
+
+                        // 查找下一个匹配位置
+                        int nextMatchPos = Integer.MAX_VALUE;
+                        Matcher matchedMatcher = null;
+
+                        if (ifMatcher.find(lastIndex) && ifMatcher.start() < nextMatchPos) {
+                            nextMatchPos = ifMatcher.start();
+                            matchedMatcher = ifMatcher;
+                        }
+                        if (endIfMatcher.find(lastIndex) && endIfMatcher.start() < nextMatchPos) {
+                            nextMatchPos = endIfMatcher.start();
+                            matchedMatcher = endIfMatcher;
+                        }
+                        if (forMatcher.find(lastIndex) && forMatcher.start() < nextMatchPos) {
+                            nextMatchPos = forMatcher.start();
+                            matchedMatcher = forMatcher;
+                        }
+                        if (endForMatcher.find(lastIndex) && endForMatcher.start() < nextMatchPos) {
+                            nextMatchPos = endForMatcher.start();
+                            matchedMatcher = endForMatcher;
+                        }
+
+                        // 处理结果
+                        if (matchedMatcher != null) {
+                            // 添加匹配前的普通文本
+                            if (nextMatchPos > lastIndex) {
+                                result.add(text.substring(lastIndex, nextMatchPos));
+                            }
+                            // 添加匹配的模式文本
+                            result.add(matchedMatcher.group());
+                            lastIndex = matchedMatcher.end();
+                        } else {
+                            // 没有更多匹配了，添加剩余文本
+                            result.add(text.substring(lastIndex));
+                            break;
+                        }
+                    }
+                    if (result.size() > 1) {
+                        run.setText(result.get(0),0);
+                        for (int j = 1; j < result.size(); j++) {
+                            XWPFRun newRun = paragraph.insertNewRun(i + j);
+                            cloneRun(run,newRun);
+                            newRun.setText(result.get(j), 0);
+                        }
+                    }
+
+                }
+            }
+        }
+    }
+
+    /**
+     * 合并相邻相同格式的run
+     * @param document
+     */
     private static void format(XWPFDocument document) {
         try {
             Iterator<XWPFParagraph> itPara = document.getParagraphsIterator();
@@ -557,7 +638,30 @@ public class WordTemplateUtil {
         private int textPosition;
 
     }
-
+    private static XWPFRun cloneRun(  XWPFRun run, XWPFRun newRun ) {
+        newRun.setBold(run.isBold());
+        newRun.setColor(run.getColor());
+        newRun.setText(run.text(), 0);
+        newRun.setItalic(run.isItalic());
+        newRun.setUnderline(run.getUnderline());
+        newRun.setStrikeThrough(run.isStrikeThrough());
+        newRun.setDoubleStrikethrough(run.isDoubleStrikeThrough());
+        newRun.setSmallCaps(run.isSmallCaps());
+        newRun.setCapitalized(run.isCapitalized());
+        newRun.setShadow(run.isShadowed());
+        newRun.setImprinted(run.isImprinted());
+        newRun.setEmbossed(run.isEmbossed());
+        newRun.setKerning(run.getKerning());
+        newRun.setFontFamily(run.getFontFamily());
+        if (run.getFontSizeAsDouble() != null) {
+            newRun.setFontSize(run.getFontSizeAsDouble());
+        }
+        newRun.setTextPosition(run.getTextPosition());
+        if (run.getCTR().getRPr() != null) {
+            newRun.getCTR().setRPr(run.getCTR().getRPr());
+        }
+        return newRun;
+    }
 
     private static XWPFRun addCloneRun(XWPFParagraph paragraph, XWPFRun run) {
         XWPFRun r = paragraph.createRun();

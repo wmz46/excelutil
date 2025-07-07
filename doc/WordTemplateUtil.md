@@ -50,6 +50,7 @@ ${description}  ${main_image.name}
 ### 表格单行循环
 使用`列表变量[].#index`获取当前循环索引    
 **不支持多行循环**
+**不支持嵌套循环**
 ```txt
 | 行号 | 字符串           | 图片                             |
 | ${item[].#index+1}  | ${items[].name} | @{items[].image_base64:100*200} |
@@ -58,6 +59,7 @@ ${description}  ${main_image.name}
 ### 表格单列循环
 使用`列表变量[].#index`获取当前循环索引    
 **不支持多列循环**
+**不支持嵌套循环**
 ```txt
 |  序号 |  ${item[].#index+1#col}                    |
 | 字符串 |  ${items[].name#col}            |
@@ -79,10 +81,10 @@ ${#index}   ${items[].name}   @{items[].image_base64:100*200}
 ### 块级循环（开发中）
 ```txt
 {{for item,i in items}}
-{{i}} {{item.name}}
+${i} ${item.name}
 {{/for}}
 或
 {{for item in items}}
-{{item.name}}
+${item.name}
 {{/for}}
 ```
