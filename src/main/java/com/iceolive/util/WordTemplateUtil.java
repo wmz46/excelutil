@@ -29,6 +29,7 @@ import java.util.*;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * @author wmz
@@ -317,6 +318,10 @@ public class WordTemplateUtil {
         while (!temp.isEmpty()) {
             int start = temp.indexOf("@{");
             int end = temp.indexOf("}");
+            if(start== -1 || end == -1){
+                strings.add(temp);
+                break;
+            }
             if (start > 0) {
                 strings.add(temp.substring(0, start));
             }
@@ -327,7 +332,7 @@ public class WordTemplateUtil {
             run.setText(strings.get(0), 0);
             runs.add(run);
             for (int i = 1; i < strings.size(); i++) {
-                XWPFRun newRun = addCloneRun(paragraph, run);
+                XWPFRun newRun = paragraph.insertNewRun(getPostOfRun(paragraph,run)+i);
                 newRun.setText(strings.get(i), 0);
                 runs.add(newRun);
             }
@@ -620,6 +625,129 @@ public class WordTemplateUtil {
 
     }
 
+    private static void processBlock(XWPFDocument document, BlockInfo block, Map<String, Object> variables) {
+
+        if ("if".equals(block.getType())) {
+            if (!Objects.equals(true, eval(block.getCondition(), variables))) {
+                removeBlock(document, block);
+            } else {
+                block.getEndRun().getParagraph().removeRun(getPostOfRun(block.getEndRun().getParagraph(), block.getEndRun()));
+                block.getStartRun().getParagraph().removeRun(getPostOfRun(block.getStartRun().getParagraph(), block.getStartRun()));
+            }
+        } else if ("for".equals(block.getType())) {
+
+            List<?> list = (List<?>) eval(block.getCollection(), variables);
+            if (list != null && !list.isEmpty()) {
+                XWPFParagraph paragraph = block.getStartRun().getParagraph();
+                //循环首个段落的run集合
+                List<XWPFRun> firstRuns = new ArrayList<>();
+                //循环最后一个段落的run集合，同一段落时为空
+                List<XWPFRun> lastRuns = new ArrayList<>();
+                //中间的段落，同一段落时为空
+                List<XWPFParagraph> midParagraphs = new ArrayList<>();
+                //是否只有一个段落
+                boolean onlyOnePara = false;
+                if (Objects.equals(block.getStartRun().getParagraph(), block.getEndRun().getParagraph())) {
+                    onlyOnePara = true;
+                    for (int i = getPostOfRun(paragraph, block.getStartRun()) + 1; i < getPostOfRun(paragraph, block.getEndRun()); i++) {
+                        firstRuns.add(paragraph.getRuns().get(i));
+                    }
+                } else {
+                    if (paragraph.getRuns().size() > getPostOfRun(paragraph, block.getStartRun())) {
+                        for (int i = getPostOfRun(paragraph, block.getStartRun()) + 1; i < paragraph.getRuns().size(); i++) {
+                            firstRuns.add(paragraph.getRuns().get(i));
+                        }
+                    }
+                }
+                paragraph = block.getEndRun().getParagraph();
+                if (getPostOfRun(paragraph, block.getEndRun()) > 0 && !Objects.equals(block.getStartRun().getParagraph(), block.getEndRun().getParagraph())) {
+                    for (int i = 0; i < getPostOfRun(paragraph, block.getEndRun()); i++) {
+                        lastRuns.add(paragraph.getRuns().get(i));
+                    }
+                }
+                for (int i = getPosOfParagraph(document, block.getStartRun()) + 1; i <= getPosOfParagraph(document, block.getEndRun()) - 1; i++) {
+                    midParagraphs.add(document.getParagraphs().get(i));
+                }
+
+                //添加节点
+                for (int i = 0; i < list.size(); i++) {
+                    Map<String, Object> vars = new HashMap<>();
+                    vars.putAll(variables);
+                    if (StringUtil.isNotBlank(block.getIndexName())) {
+                        vars.put(block.getItemName(), i);
+                    }
+                    if (StringUtil.isNotBlank(block.getItemName())) {
+                        vars.put(block.getItemName(), list.get(i));
+                    }
+                    XWPFParagraph startPara = block.getStartRun().getParagraph();
+                    if (onlyOnePara) {
+                        for (int j = 0; j < firstRuns.size(); j++) {
+                            XWPFRun newRun = startPara.insertNewRun(getPostOfRun(startPara, block.getStartRun()));
+                            cloneRun(firstRuns.get(j), newRun);
+                            //替换变量
+                            replaceRun(newRun,newRun.getParagraph(), vars);
+                        }
+                    } else {
+                        if (i == 0) {
+                            splitPara(document, block.getStartRun());
+                        }
+                        if (!firstRuns.isEmpty()) {
+                            int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
+                            XWPFParagraph tempPara = document.getParagraphs().get(posPara);
+                            for (int j = 0; j < firstRuns.size(); j++) {
+                                XWPFRun newRun = addCloneRun(tempPara, firstRuns.get(j));
+
+                                //替换变量
+                                replaceRun(newRun, newRun.getParagraph(), vars);
+                            }
+                        }
+                        if (!midParagraphs.isEmpty()) {
+                            for (int j = 0; j < midParagraphs.size(); j++) {
+                                int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
+                                XWPFParagraph newPara = insertNewParagraph(document, document.getParagraphs().get(posPara));
+                                cloneParagraph(newPara, midParagraphs.get(j));
+                                int l = newPara.getRuns().size();
+                                for (int k = l - 1; k >= 0; k--) {
+                                    XWPFRun run = newPara.getRuns().get(k);
+
+                                    //替换变量
+                                    replaceRun(run, run.getParagraph(), vars);
+                                }
+
+                            }
+                        }
+                        if (!lastRuns.isEmpty()) {
+                            if (i < list.size() - 1) {
+                                int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
+                                XWPFParagraph newPara = insertNewParagraph(document, document.getParagraphs().get(posPara));
+                                cloneParagraphStyle(newPara, block.getEndRun().getParagraph());
+                                for (int j = 0; j < lastRuns.size(); j++) {
+                                    XWPFRun newRun = newPara.insertNewRun(j);
+                                    cloneRun(lastRuns.get(j), newRun);
+                                    //替换变量
+                                    replaceRun(newRun, newRun.getParagraph(), vars);
+                                }
+                            } else {
+                                XWPFParagraph newPara = block.getStartRun().getParagraph();
+                                for (int j = 0; j < lastRuns.size(); j++) {
+                                    XWPFRun newRun = newPara.insertNewRun(j);
+                                    cloneRun(lastRuns.get(j), newRun);
+                                    //替换变量
+                                    replaceRun(newRun, newRun.getParagraph(), vars);
+                                }
+                            }
+                        }
+
+
+                    }
+
+
+                }
+            }
+            removeBlock(document, block);
+        }
+    }
+
     /**
      * 处理块
      */
@@ -671,128 +799,7 @@ public class WordTemplateUtil {
         }
         if (!blocks.isEmpty()) {
             BlockInfo block = blocks.get(0);
-            if (block.getParent() == null) {
-                if ("if".equals(block.getType())) {
-                    if (!Objects.equals(true, eval(block.getCondition(), variables))) {
-                        removeBlock(document, block);
-                    } else {
-                        block.getEndRun().getParagraph().removeRun(getPostOfRun(block.getEndRun().getParagraph(), block.getEndRun()));
-                        block.getStartRun().getParagraph().removeRun(getPostOfRun(block.getStartRun().getParagraph(), block.getStartRun()));
-                    }
-                } else if ("for".equals(block.getType())) {
-
-                    List<?> list = (List<?>) eval(block.getCollection(), variables);
-                    if (list != null && !list.isEmpty()) {
-                        XWPFParagraph paragraph = block.getStartRun().getParagraph();
-                        //循环首个段落的run集合
-                        List<XWPFRun> firstRuns = new ArrayList<>();
-                        //循环最后一个段落的run集合，同一段落时为空
-                        List<XWPFRun> lastRuns = new ArrayList<>();
-                        //中间的段落，同一段落时为空
-                        List<XWPFParagraph> midParagraphs = new ArrayList<>();
-                        //是否只有一个段落
-                        boolean onlyOnePara = false;
-
-                        if (Objects.equals(block.getStartRun().getParagraph(), block.getEndRun().getParagraph())) {
-                            onlyOnePara = true;
-                            for (int i = getPostOfRun(paragraph, block.getStartRun()) + 1; i < getPostOfRun(paragraph, block.getEndRun()); i++) {
-                                firstRuns.add(paragraph.getRuns().get(i));
-                            }
-                        } else {
-                            if (paragraph.getRuns().size() > getPostOfRun(paragraph, block.getStartRun())) {
-                                for (int i = getPostOfRun(paragraph, block.getStartRun()) + 1; i < paragraph.getRuns().size(); i++) {
-                                    firstRuns.add(paragraph.getRuns().get(i));
-                                }
-                            }
-                        }
-                        paragraph = block.getEndRun().getParagraph();
-                        if (getPostOfRun(paragraph, block.getEndRun()) > 0 && !Objects.equals(block.getStartRun().getParagraph(), block.getEndRun().getParagraph())) {
-                            for (int i = 0; i < getPostOfRun(paragraph, block.getEndRun()); i++) {
-                                lastRuns.add(paragraph.getRuns().get(i));
-                            }
-                        }
-                        for (int i = getPosOfParagraph(document, block.getStartRun()) + 1; i <= getPosOfParagraph(document, block.getEndRun()) - 1; i++) {
-                            midParagraphs.add(document.getParagraphs().get(i));
-                        }
-                        //添加节点
-                        for (int i = 0; i < list.size(); i++) {
-                            Map<String, Object> vars = new HashMap<>();
-                            vars.putAll(variables);
-                            if (StringUtil.isNotBlank(block.getIndexName())) {
-                                vars.put(block.getItemName(), i);
-                            }
-                            if (StringUtil.isNotBlank(block.getItemName())) {
-                                vars.put(block.getItemName(), list.get(i));
-                            }
-                            Object item = list.get(i);
-                            XWPFParagraph startPara = block.getStartRun().getParagraph();
-                            if (onlyOnePara) {
-                                for (int j = 0; j < firstRuns.size(); j++) {
-                                    XWPFRun newRun = startPara.insertNewRun(getPostOfRun(startPara, block.getStartRun()) + j);
-                                    cloneRun(firstRuns.get(j), newRun);
-                                    //替换变量
-                                    replaceRun(newRun, newRun.getParagraph(), vars);
-                                }
-                            } else {
-                                if (i == 0) {
-                                    splitPara(document, block.getStartRun());
-                                }
-                                if (!firstRuns.isEmpty()) {
-                                    int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
-                                    XWPFParagraph tempPara = document.getParagraphs().get(posPara);
-                                    for (int j = 0; j < firstRuns.size(); j++) {
-                                        XWPFRun newRun = addCloneRun(tempPara, firstRuns.get(j));
-                                        //替换变量
-                                        replaceRun(newRun, newRun.getParagraph(), vars);
-                                    }
-                                }
-                                if (!midParagraphs.isEmpty()) {
-                                    for (int j = 0; j < midParagraphs.size(); j++) {
-                                        int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
-                                        XWPFParagraph newPara = insertNewParagraph(document, document.getParagraphs().get(posPara));
-                                        cloneParagraph(newPara, midParagraphs.get(j));
-                                        int l = newPara.getRuns().size();
-                                        for (int k = l - 1; k >= 0; k--) {
-                                            XWPFRun run = newPara.getRuns().get(k);
-                                            //替换变量
-                                            replaceRun(run, run.getParagraph(), vars);
-                                        }
-
-                                    }
-                                }
-                                if (!lastRuns.isEmpty()) {
-                                    if (i < list.size() - 1) {
-                                        int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
-                                        XWPFParagraph newPara = insertNewParagraph(document, document.getParagraphs().get(posPara));
-                                        cloneParagraphStyle(newPara, block.getEndRun().getParagraph());
-                                        for (int j = 0; j < lastRuns.size(); j++) {
-                                            XWPFRun newRun = newPara.insertNewRun(j);
-                                            cloneRun(lastRuns.get(j), newRun);
-                                            //替换变量
-                                            replaceRun(newRun, newRun.getParagraph(), vars);
-                                        }
-                                    } else {
-                                        XWPFParagraph newPara = block.getStartRun().getParagraph();
-                                        for (int j = 0; j < lastRuns.size(); j++) {
-                                            XWPFRun newRun = newPara.insertNewRun(j);
-                                            cloneRun(lastRuns.get(j), newRun);
-                                            //替换变量
-                                            replaceRun(newRun, newRun.getParagraph(), vars);
-                                        }
-                                    }
-                                }
-
-
-                            }
-
-
-                        }
-                    }
-                    removeBlock(document, block);
-                }
-            } else {
-                //todo
-            }
+            processBlock(document, block, variables);
             if (blocks.size() > 1) {
                 processBlock(document, variables);
             }
