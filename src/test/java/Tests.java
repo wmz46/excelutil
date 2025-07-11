@@ -7,8 +7,10 @@ import com.iceolive.util.constants.ValidationConsts;
 import com.iceolive.util.enums.ColumnType;
 import com.iceolive.util.model.*;
 import lombok.Data;
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.Test;
+import org.junit.rules.Stopwatch;
 
 import javax.imageio.ImageIO;
 import javax.validation.constraints.NotBlank;
@@ -251,6 +253,8 @@ public class Tests {
 
     @Test
     public void test8() throws IOException {
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         String filepath = System.getProperty("user.dir") + "//testdata//wordtpl.docx";
         Map<String, Object> map = new HashMap<>();
         List<Map<String, Object>> list = new ArrayList<>();
@@ -272,6 +276,8 @@ public class Tests {
         XWPFDocument doc = WordTemplateUtil.load(filepath);
         WordTemplateUtil.fillData(doc, map);
         WordTemplateUtil.save(doc, System.getProperty("user.dir") + "//testdata//result.docx");
+        stopWatch.stop();
+        System.out.println(stopWatch.getTime());
     }
 
     @Test

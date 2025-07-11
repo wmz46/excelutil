@@ -238,7 +238,6 @@ public class WordTemplateUtil {
             //替换段落变量
             for (int i = document.getParagraphs().size() - 1; i >= 0; i--) {
                 XWPFParagraph paragraph = document.getParagraphs().get(i);
-
                 XmlCursor cursor = paragraph.getCTP().newCursor();
                 cursor.selectPath("declare namespace w='http://schemas.openxmlformats.org/wordprocessingml/2006/main' .//*/w:txbxContent/w:p/w:r");
                 List<XmlObject> ctrsintxtbx = new ArrayList<>();
@@ -254,6 +253,7 @@ public class WordTemplateUtil {
                     replaceRun(run, paragraph, variables);
                     obj.set(run.getCTR());
                 }
+
                 replaceParagraph(paragraph, variables);
 
 
