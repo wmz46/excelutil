@@ -90,8 +90,7 @@ public class WordTemplateUtil {
     public static void fillData(XWPFDocument document, Map<String, Object> variables) {
         try {
             format(document);
-            fixBlock(document);
-            //处理块
+            //处理段落块
             processBlock(document, variables);
             List<XWPFParagraph> paragraphs = document.getParagraphs();
             //段落判断是否有[]，有则循环段落
@@ -214,6 +213,24 @@ public class WordTemplateUtil {
 
                             }
                         }
+                    }
+                }
+            }
+            //处理表格内单元格块级元素
+            itTable = document.getTablesIterator();
+            while (itTable.hasNext()) {
+                XWPFTable table = itTable.next();
+                //获得表格总行数
+                int count = table.getNumberOfRows();
+                //遍历表格的每一行
+                for (int i = 0; i < count; i++) {
+                    //获得表格的行
+                    XWPFTableRow row = table.getRow(i);
+                    //在行元素中，获得表格的单元格
+                    List<XWPFTableCell> cells = row.getTableCells();
+                    //遍历单元格
+                    for (XWPFTableCell cell : cells) {
+                        processBlock(cell, variables);
                     }
                 }
             }
@@ -484,10 +501,12 @@ public class WordTemplateUtil {
         private BlockInfo parent;
     }
 
-    private static void fixBlock(XWPFDocument document) {
-        Iterator<XWPFParagraph> itPara = document.getParagraphsIterator();
-        while (itPara.hasNext()) {
-            XWPFParagraph paragraph = itPara.next();
+    /**
+     * 拆分块级标签占位符
+     * @param body
+     */
+    private static void fixBlock(IBody body) {
+        for (XWPFParagraph paragraph : body.getParagraphs()) {
             List<XWPFRun> runs = paragraph.getRuns();
             for (int i = runs.size() - 1; i >= 0; i--) {
                 XWPFRun run = runs.get(i);
@@ -554,8 +573,8 @@ public class WordTemplateUtil {
         }
     }
 
-    private static int getPosOfParagraph(XWPFDocument document, XWPFRun run) {
-        return document.getParagraphs().indexOf(run.getParagraph());
+    private static int getPosOfParagraph(IBody body, XWPFRun run) {
+        return body.getParagraphs().indexOf(run.getParagraph());
     }
 
     private static int getPosOfRun(XWPFParagraph paragraph, XWPFRun run) {
@@ -564,10 +583,10 @@ public class WordTemplateUtil {
 
     /**
      * 移除块内容
-     * @param document
+     * @param body
      * @param block
      */
-    private static void removeBlock(XWPFDocument document, BlockInfo block) {
+    private static void removeBlock(IBody body, BlockInfo block) {
         if (Objects.equals(block.getStartRun().getParagraph(), block.getEndRun().getParagraph())) {
             XWPFParagraph tempPara = block.getEndRun().getParagraph();
             int endPos = tempPara.getRuns().indexOf(block.getEndRun());
@@ -583,8 +602,8 @@ public class WordTemplateUtil {
                 endParaRuns.add(endPara.getRuns().get(i));
             }
 
-            int endParaPos = getPosOfParagraph(document, block.getEndRun());
-            int startParaPos = getPosOfParagraph(document, block.getStartRun());
+            int endParaPos = getPosOfParagraph(body, block.getEndRun());
+            int startParaPos = getPosOfParagraph(body, block.getStartRun());
 
             XWPFParagraph startPara = block.getStartRun().getParagraph();
             int startPos = getPosOfRun(startPara, block.getStartRun());
@@ -595,8 +614,14 @@ public class WordTemplateUtil {
             }
             //删除中间段落和结尾段落
             for (int i = endParaPos; i >= startParaPos + 1; i--) {
-                int pos = document.getPosOfParagraph(document.getParagraphs().get(i));
-                document.removeBodyElement(pos);
+                if (body instanceof XWPFDocument) {
+                    XWPFDocument document = (XWPFDocument) body;
+                    int pos = document.getPosOfParagraph(document.getParagraphs().get(i));
+                    document.removeBodyElement(pos);
+                } else {
+                    XWPFParagraph para = body.getParagraphs().get(i);
+                    body.getBodyElements().remove(para);
+                }
             }
             //删除开始段落原先模板后面的run
             for (int i = lastPos; i >= startPos; i--) {
@@ -606,10 +631,10 @@ public class WordTemplateUtil {
         }
     }
 
-    private static XWPFParagraph splitPara(XWPFDocument document, XWPFRun run) {
+    private static XWPFParagraph splitPara(IBody body, XWPFRun run) {
         XWPFParagraph paragraph = run.getParagraph();
         XmlCursor cursor = paragraph.getCTP().newCursor();
-        XWPFParagraph newParagraph = document.insertNewParagraph(cursor);
+        XWPFParagraph newParagraph = body.insertNewParagraph(cursor);
         cloneParagraphStyle(newParagraph, paragraph);
         int pos = getPosOfRun(paragraph, run);
         int length = paragraph.getRuns().size();
@@ -670,12 +695,12 @@ public class WordTemplateUtil {
 
     /**
      * 获取开始和结束之间的run，不包括开始和结束
-     * @param document
+     * @param body
      * @param startRun
      * @param endRun
      * @return
      */
-    private static List<XWPFRun> getRuns(XWPFDocument document, XWPFRun startRun, XWPFRun endRun) {
+    private static List<XWPFRun> getRuns(IBody body, XWPFRun startRun, XWPFRun endRun) {
         List<XWPFRun> runs = new ArrayList<>();
         int posOfStartRun = getPosOfRun(startRun.getParagraph(), startRun);
         int posOfEndRun = getPosOfRun(endRun.getParagraph(), endRun);
@@ -688,8 +713,8 @@ public class WordTemplateUtil {
             if (startRun.getParagraph().getRuns().size() > posOfStartRun + 1) {
                 runs.addAll(startRun.getParagraph().getRuns().subList(posOfStartRun + 1, startRun.getParagraph().getRuns().size()));
             }
-            for (int i = getPosOfParagraph(document, startRun) + 1; i < getPosOfParagraph(document, endRun); i++) {
-                runs.addAll(document.getParagraphs().get(i).getRuns());
+            for (int i = getPosOfParagraph(body, startRun) + 1; i < getPosOfParagraph(body, endRun); i++) {
+                runs.addAll(body.getParagraphs().get(i).getRuns());
             }
             if (posOfEndRun > 0) {
                 runs.addAll(endRun.getParagraph().getRuns().subList(0, posOfEndRun - 1));
@@ -698,16 +723,16 @@ public class WordTemplateUtil {
         return runs;
     }
 
-    private static void processBlock(XWPFDocument document, BlockInfo block, Map<String, Object> variables) {
+    private static void processBlock(IBody body, BlockInfo block, Map<String, Object> variables) {
 
         if ("if".equals(block.getType())) {
             if (!Objects.equals(true, eval(block.getCondition(), variables))) {
-                removeBlock(document, block);
+                removeBlock(body, block);
             } else {
                 //递归处理子块
-                List<BlockInfo> blocks = getBlocks(getRuns(document, block.getStartRun(), block.getEndRun())).stream().filter(m -> m.getParent() == null).collect(Collectors.toList());
+                List<BlockInfo> blocks = getBlocks(getRuns(body, block.getStartRun(), block.getEndRun())).stream().filter(m -> m.getParent() == null).collect(Collectors.toList());
                 for (BlockInfo item : blocks) {
-                    processBlock(document, item, variables);
+                    processBlock(body, item, variables);
                 }
                 block.getEndRun().getParagraph().removeRun(getPosOfRun(block.getEndRun().getParagraph(), block.getEndRun()));
                 block.getStartRun().getParagraph().removeRun(getPosOfRun(block.getStartRun().getParagraph(), block.getStartRun()));
@@ -743,8 +768,8 @@ public class WordTemplateUtil {
                         lastRuns.add(paragraph.getRuns().get(i));
                     }
                 }
-                for (int i = getPosOfParagraph(document, block.getStartRun()) + 1; i <= getPosOfParagraph(document, block.getEndRun()) - 1; i++) {
-                    midParagraphs.add(document.getParagraphs().get(i));
+                for (int i = getPosOfParagraph(body, block.getStartRun()) + 1; i <= getPosOfParagraph(body, block.getEndRun()) - 1; i++) {
+                    midParagraphs.add(body.getParagraphs().get(i));
                 }
                 //添加节点
                 for (int i = 0; i < list.size(); i++) {
@@ -767,11 +792,11 @@ public class WordTemplateUtil {
                         }
                     } else {
                         if (i == 0) {
-                            splitPara(document, block.getStartRun());
+                            splitPara(body, block.getStartRun());
                         }
                         if (!firstRuns.isEmpty()) {
-                            int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
-                            XWPFParagraph tempPara = document.getParagraphs().get(posPara);
+                            int posPara = getPosOfParagraph(body, block.getStartRun()) - 1;
+                            XWPFParagraph tempPara = body.getParagraphs().get(posPara);
                             for (int j = 0; j < firstRuns.size(); j++) {
                                 XWPFRun newRun = addCloneRun(tempPara, firstRuns.get(j));
                                 runs.add(newRun);
@@ -779,8 +804,8 @@ public class WordTemplateUtil {
                         }
                         if (!midParagraphs.isEmpty()) {
                             for (int j = 0; j < midParagraphs.size(); j++) {
-                                int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
-                                XWPFParagraph newPara = insertNewParagraph(document, document.getParagraphs().get(posPara));
+                                int posPara = getPosOfParagraph(body, block.getStartRun()) - 1;
+                                XWPFParagraph newPara = insertNewParagraph(body, body.getParagraphs().get(posPara));
                                 cloneParagraph(newPara, midParagraphs.get(j));
                                 runs.addAll(newPara.getRuns());
 
@@ -788,8 +813,8 @@ public class WordTemplateUtil {
                         }
                         if (!lastRuns.isEmpty()) {
                             if (i < list.size() - 1) {
-                                int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
-                                XWPFParagraph newPara = insertNewParagraph(document, document.getParagraphs().get(posPara));
+                                int posPara = getPosOfParagraph(body, block.getStartRun()) - 1;
+                                XWPFParagraph newPara = insertNewParagraph(body, body.getParagraphs().get(posPara));
                                 cloneParagraphStyle(newPara, block.getEndRun().getParagraph());
                                 for (int j = 0; j < lastRuns.size(); j++) {
                                     XWPFRun newRun = newPara.insertNewRun(j);
@@ -812,7 +837,7 @@ public class WordTemplateUtil {
                     List<BlockInfo> blocks = getBlocks(runs).stream().filter(m -> m.getParent() == null).collect(Collectors.toList());
                     if (!blocks.isEmpty()) {
                         for (BlockInfo blockInfo : blocks) {
-                            processBlock(document, blockInfo, vars);
+                            processBlock(body, blockInfo, vars);
                         }
                     }
                     //替换变量
@@ -827,19 +852,21 @@ public class WordTemplateUtil {
 
                 }
             }
-            removeBlock(document, block);
+            removeBlock(body, block);
         }
     }
 
     /**
      * 处理块
      */
-    private static void processBlock(XWPFDocument document, Map<String, Object> variables) {
+    private static void processBlock(IBody body, Map<String, Object> variables) {
+
+        fixBlock(body);
         Stack<BlockInfo> stack = new Stack<>();
         List<BlockInfo> blocks = new ArrayList<>();
 
-        for (int i = 0; i <= document.getParagraphs().size() - 1; i++) {
-            XWPFParagraph paragraph = document.getParagraphs().get(i);
+        for (int i = 0; i <= body.getParagraphs().size() - 1; i++) {
+            XWPFParagraph paragraph = body.getParagraphs().get(i);
             for (int j = 0; j < paragraph.getRuns().size(); j++) {
                 XWPFRun run = paragraph.getRuns().get(j);
                 String text = run.getText(run.getTextPosition());
@@ -883,7 +910,7 @@ public class WordTemplateUtil {
 
         if (!rootBlocks.isEmpty()) {
             for (BlockInfo block : rootBlocks) {
-                processBlock(document, block, variables);
+                processBlock(body, block, variables);
             }
 
         }
@@ -1161,11 +1188,11 @@ public class WordTemplateUtil {
         }
     }
 
-    private static XWPFParagraph insertNewParagraph(XWPFDocument document, XWPFParagraph paragraph) {
+    private static XWPFParagraph insertNewParagraph(IBody body, XWPFParagraph paragraph) {
         XmlCursor cursor = paragraph.getCTP().newCursor();
         //光标移到下一个段落
         cursor.toNextSibling();
-        XWPFParagraph p = document.insertNewParagraph(cursor);
+        XWPFParagraph p = body.insertNewParagraph(cursor);
         return p;
 
     }
