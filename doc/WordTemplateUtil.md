@@ -71,14 +71,16 @@ ${description}  ${main_image.name}
 ```txt
 ${#index}   ${items[].name}   @{items[].image_base64:100*200}
 ```
-### 块级条件（开发中）
+### 块级条件
+**不支持文本框和表格内的块级条件**
 ```txt
 {{#if name == '张三'}}
 
 {{/if}}
 
 ```
-### 块级循环（开发中）
+### 块级循环
+**不支持文本框和表格内的块级循环**
 ```txt
 {{for item,i in items}}
 ${i} ${item.name}

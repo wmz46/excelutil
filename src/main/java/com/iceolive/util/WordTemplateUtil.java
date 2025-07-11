@@ -21,7 +21,6 @@ import javax.el.StandardELContext;
 import javax.el.ValueExpression;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -318,7 +317,7 @@ public class WordTemplateUtil {
         while (!temp.isEmpty()) {
             int start = temp.indexOf("@{");
             int end = temp.indexOf("}");
-            if(start== -1 || end == -1){
+            if (start == -1 || end == -1) {
                 strings.add(temp);
                 break;
             }
@@ -332,7 +331,7 @@ public class WordTemplateUtil {
             run.setText(strings.get(0), 0);
             runs.add(run);
             for (int i = 1; i < strings.size(); i++) {
-                XWPFRun newRun = paragraph.insertNewRun(getPostOfRun(paragraph,run)+i);
+                XWPFRun newRun = paragraph.insertNewRun(getPosOfRun(paragraph, run) + i);
                 newRun.setText(strings.get(i), 0);
                 runs.add(newRun);
             }
@@ -559,7 +558,7 @@ public class WordTemplateUtil {
         return document.getParagraphs().indexOf(run.getParagraph());
     }
 
-    private static int getPostOfRun(XWPFParagraph paragraph, XWPFRun run) {
+    private static int getPosOfRun(XWPFParagraph paragraph, XWPFRun run) {
         return paragraph.getRuns().indexOf(run);
     }
 
@@ -578,7 +577,7 @@ public class WordTemplateUtil {
             }
         } else {
             XWPFParagraph endPara = block.getEndRun().getParagraph();
-            int endPos = getPostOfRun(endPara, block.getEndRun());
+            int endPos = getPosOfRun(endPara, block.getEndRun());
             List<XWPFRun> endParaRuns = new ArrayList<>();
             for (int i = endPos + 1; i < endPara.getRuns().size(); i++) {
                 endParaRuns.add(endPara.getRuns().get(i));
@@ -588,7 +587,7 @@ public class WordTemplateUtil {
             int startParaPos = getPosOfParagraph(document, block.getStartRun());
 
             XWPFParagraph startPara = block.getStartRun().getParagraph();
-            int startPos = getPostOfRun(startPara, block.getStartRun());
+            int startPos = getPosOfRun(startPara, block.getStartRun());
             int lastPos = startPara.getRuns().size() - 1;
             //将结尾段落后面的run添加到开始段落
             for (XWPFRun endParaRun : endParaRuns) {
@@ -612,7 +611,7 @@ public class WordTemplateUtil {
         XmlCursor cursor = paragraph.getCTP().newCursor();
         XWPFParagraph newParagraph = document.insertNewParagraph(cursor);
         cloneParagraphStyle(newParagraph, paragraph);
-        int pos = getPostOfRun(paragraph, run);
+        int pos = getPosOfRun(paragraph, run);
         int length = paragraph.getRuns().size();
         for (int i = 0; i < pos; i++) {
             addCloneRun(newParagraph, paragraph.getRuns().get(i));
@@ -625,14 +624,93 @@ public class WordTemplateUtil {
 
     }
 
+    private static List<BlockInfo> getBlocks(List<XWPFRun> runs) {
+        Stack<BlockInfo> stack = new Stack<>();
+        List<BlockInfo> blocks = new ArrayList<>();
+        for (XWPFRun run : runs) {
+
+            String text = run.getText(run.getTextPosition());
+            if (StringUtil.isNotBlank(text)) {
+                Matcher ifMatcher = ifReg.matcher(text);
+                Matcher endIfMatcher = endIfReg.matcher(text);
+                Matcher forMatcher = forReg.matcher(text);
+                Matcher endForMatcher = endForReg.matcher(text);
+                if (ifMatcher.find()) {
+                    BlockInfo block = new BlockInfo();
+                    block.setType("if");
+                    block.setCondition(ifMatcher.group(1));
+                    block.setStartRun(run);
+                    if (!stack.isEmpty()) {
+                        block.setParent(stack.peek());
+                    }
+                    stack.push(block);
+                    blocks.add(block);
+                } else if (forMatcher.find()) {
+                    BlockInfo block = new BlockInfo();
+                    block.setType("for");
+                    block.setItemName(forMatcher.group(1));
+                    block.setIndexName(forMatcher.group(2));
+                    block.setCollection(forMatcher.group(3));
+                    block.setStartRun(run);
+                    if (!stack.isEmpty()) {
+                        block.setParent(stack.peek());
+                    }
+                    stack.push(block);
+                    blocks.add(block);
+                } else if (endIfMatcher.find() || endForMatcher.find()) {
+                    if (!stack.isEmpty()) {
+                        BlockInfo block = stack.pop();
+                        block.setEndRun(run);
+                    }
+                }
+            }
+        }
+        return blocks;
+    }
+
+    /**
+     * 获取开始和结束之间的run，不包括开始和结束
+     * @param document
+     * @param startRun
+     * @param endRun
+     * @return
+     */
+    private static List<XWPFRun> getRuns(XWPFDocument document, XWPFRun startRun, XWPFRun endRun) {
+        List<XWPFRun> runs = new ArrayList<>();
+        int posOfStartRun = getPosOfRun(startRun.getParagraph(), startRun);
+        int posOfEndRun = getPosOfRun(endRun.getParagraph(), endRun);
+        if (Objects.equals(startRun.getParagraph(), endRun.getParagraph())) {
+            //同一行
+            if (posOfStartRun < posOfEndRun - 1) {
+                runs.addAll(startRun.getParagraph().getRuns().subList(posOfStartRun + 1, posOfEndRun - 1));
+            }
+        } else {
+            if (startRun.getParagraph().getRuns().size() > posOfStartRun + 1) {
+                runs.addAll(startRun.getParagraph().getRuns().subList(posOfStartRun + 1, startRun.getParagraph().getRuns().size()));
+            }
+            for (int i = getPosOfParagraph(document, startRun) + 1; i < getPosOfParagraph(document, endRun); i++) {
+                runs.addAll(document.getParagraphs().get(i).getRuns());
+            }
+            if (posOfEndRun > 0) {
+                runs.addAll(endRun.getParagraph().getRuns().subList(0, posOfEndRun - 1));
+            }
+        }
+        return runs;
+    }
+
     private static void processBlock(XWPFDocument document, BlockInfo block, Map<String, Object> variables) {
 
         if ("if".equals(block.getType())) {
             if (!Objects.equals(true, eval(block.getCondition(), variables))) {
                 removeBlock(document, block);
             } else {
-                block.getEndRun().getParagraph().removeRun(getPostOfRun(block.getEndRun().getParagraph(), block.getEndRun()));
-                block.getStartRun().getParagraph().removeRun(getPostOfRun(block.getStartRun().getParagraph(), block.getStartRun()));
+                //递归处理子块
+                List<BlockInfo> blocks = getBlocks(getRuns(document, block.getStartRun(), block.getEndRun())).stream().filter(m -> m.getParent() == null).collect(Collectors.toList());
+                for (BlockInfo item : blocks) {
+                    processBlock(document, item, variables);
+                }
+                block.getEndRun().getParagraph().removeRun(getPosOfRun(block.getEndRun().getParagraph(), block.getEndRun()));
+                block.getStartRun().getParagraph().removeRun(getPosOfRun(block.getStartRun().getParagraph(), block.getStartRun()));
             }
         } else if ("for".equals(block.getType())) {
 
@@ -649,43 +727,43 @@ public class WordTemplateUtil {
                 boolean onlyOnePara = false;
                 if (Objects.equals(block.getStartRun().getParagraph(), block.getEndRun().getParagraph())) {
                     onlyOnePara = true;
-                    for (int i = getPostOfRun(paragraph, block.getStartRun()) + 1; i < getPostOfRun(paragraph, block.getEndRun()); i++) {
+                    for (int i = getPosOfRun(paragraph, block.getStartRun()) + 1; i < getPosOfRun(paragraph, block.getEndRun()); i++) {
                         firstRuns.add(paragraph.getRuns().get(i));
                     }
                 } else {
-                    if (paragraph.getRuns().size() > getPostOfRun(paragraph, block.getStartRun())) {
-                        for (int i = getPostOfRun(paragraph, block.getStartRun()) + 1; i < paragraph.getRuns().size(); i++) {
+                    if (paragraph.getRuns().size() > getPosOfRun(paragraph, block.getStartRun())) {
+                        for (int i = getPosOfRun(paragraph, block.getStartRun()) + 1; i < paragraph.getRuns().size(); i++) {
                             firstRuns.add(paragraph.getRuns().get(i));
                         }
                     }
                 }
                 paragraph = block.getEndRun().getParagraph();
-                if (getPostOfRun(paragraph, block.getEndRun()) > 0 && !Objects.equals(block.getStartRun().getParagraph(), block.getEndRun().getParagraph())) {
-                    for (int i = 0; i < getPostOfRun(paragraph, block.getEndRun()); i++) {
+                if (getPosOfRun(paragraph, block.getEndRun()) > 0 && !Objects.equals(block.getStartRun().getParagraph(), block.getEndRun().getParagraph())) {
+                    for (int i = 0; i < getPosOfRun(paragraph, block.getEndRun()); i++) {
                         lastRuns.add(paragraph.getRuns().get(i));
                     }
                 }
                 for (int i = getPosOfParagraph(document, block.getStartRun()) + 1; i <= getPosOfParagraph(document, block.getEndRun()) - 1; i++) {
                     midParagraphs.add(document.getParagraphs().get(i));
                 }
-
                 //添加节点
                 for (int i = 0; i < list.size(); i++) {
                     Map<String, Object> vars = new HashMap<>();
                     vars.putAll(variables);
                     if (StringUtil.isNotBlank(block.getIndexName())) {
-                        vars.put(block.getItemName(), i);
+                        vars.put(block.getIndexName(), i);
                     }
                     if (StringUtil.isNotBlank(block.getItemName())) {
                         vars.put(block.getItemName(), list.get(i));
                     }
+                    //用来存储新增的循环块节点
+                    List<XWPFRun> runs = new ArrayList<>();
                     XWPFParagraph startPara = block.getStartRun().getParagraph();
                     if (onlyOnePara) {
                         for (int j = 0; j < firstRuns.size(); j++) {
-                            XWPFRun newRun = startPara.insertNewRun(getPostOfRun(startPara, block.getStartRun()));
+                            XWPFRun newRun = startPara.insertNewRun(getPosOfRun(startPara, block.getStartRun()));
                             cloneRun(firstRuns.get(j), newRun);
-                            //替换变量
-                            replaceRun(newRun,newRun.getParagraph(), vars);
+                            runs.add(newRun);
                         }
                     } else {
                         if (i == 0) {
@@ -696,9 +774,7 @@ public class WordTemplateUtil {
                             XWPFParagraph tempPara = document.getParagraphs().get(posPara);
                             for (int j = 0; j < firstRuns.size(); j++) {
                                 XWPFRun newRun = addCloneRun(tempPara, firstRuns.get(j));
-
-                                //替换变量
-                                replaceRun(newRun, newRun.getParagraph(), vars);
+                                runs.add(newRun);
                             }
                         }
                         if (!midParagraphs.isEmpty()) {
@@ -706,13 +782,7 @@ public class WordTemplateUtil {
                                 int posPara = getPosOfParagraph(document, block.getStartRun()) - 1;
                                 XWPFParagraph newPara = insertNewParagraph(document, document.getParagraphs().get(posPara));
                                 cloneParagraph(newPara, midParagraphs.get(j));
-                                int l = newPara.getRuns().size();
-                                for (int k = l - 1; k >= 0; k--) {
-                                    XWPFRun run = newPara.getRuns().get(k);
-
-                                    //替换变量
-                                    replaceRun(run, run.getParagraph(), vars);
-                                }
+                                runs.addAll(newPara.getRuns());
 
                             }
                         }
@@ -724,21 +794,34 @@ public class WordTemplateUtil {
                                 for (int j = 0; j < lastRuns.size(); j++) {
                                     XWPFRun newRun = newPara.insertNewRun(j);
                                     cloneRun(lastRuns.get(j), newRun);
-                                    //替换变量
-                                    replaceRun(newRun, newRun.getParagraph(), vars);
+                                    runs.add(newRun);
                                 }
                             } else {
                                 XWPFParagraph newPara = block.getStartRun().getParagraph();
                                 for (int j = 0; j < lastRuns.size(); j++) {
                                     XWPFRun newRun = newPara.insertNewRun(j);
                                     cloneRun(lastRuns.get(j), newRun);
-                                    //替换变量
-                                    replaceRun(newRun, newRun.getParagraph(), vars);
+                                    runs.add(newRun);
                                 }
                             }
                         }
 
+                    }
 
+                    //递归处理子块
+                    List<BlockInfo> blocks = getBlocks(runs).stream().filter(m -> m.getParent() == null).collect(Collectors.toList());
+                    if (!blocks.isEmpty()) {
+                        for (BlockInfo blockInfo : blocks) {
+                            processBlock(document, blockInfo, vars);
+                        }
+                    }
+                    //替换变量
+                    for (XWPFRun run : runs) {
+                        try {
+                            replaceRun(run, run.getParagraph(), vars);
+                        } catch (Exception e) {
+                            //由于run可能在子块处理时被删除，这里直接跳过
+                        }
                     }
 
 
@@ -781,7 +864,6 @@ public class WordTemplateUtil {
                         block.setItemName(forMatcher.group(1));
                         block.setIndexName(forMatcher.group(2));
                         block.setCollection(forMatcher.group(3));
-                        block.setIndexName(forMatcher.group());
                         block.setStartRun(run);
                         if (!stack.isEmpty()) {
                             block.setParent(stack.peek());
@@ -797,12 +879,13 @@ public class WordTemplateUtil {
                 }
             }
         }
-        if (!blocks.isEmpty()) {
-            BlockInfo block = blocks.get(0);
-            processBlock(document, block, variables);
-            if (blocks.size() > 1) {
-                processBlock(document, variables);
+        List<BlockInfo> rootBlocks = blocks.stream().filter(m -> m.parent == null).collect(Collectors.toList());
+
+        if (!rootBlocks.isEmpty()) {
+            for (BlockInfo block : rootBlocks) {
+                processBlock(document, block, variables);
             }
+
         }
     }
 
