@@ -71,6 +71,10 @@ public class Tests {
     private static final String TESTDATA_DIR = System.getProperty("user.dir") + "//testdata//templates//";
     private static final String OUTPUT_DIR = System.getProperty("user.dir") + "//testdata//output//";
 
+    static {
+        new File(OUTPUT_DIR).mkdirs();
+    }
+
     private String path(String filename) {
         return TESTDATA_DIR + filename;
     }
