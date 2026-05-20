@@ -39,7 +39,7 @@ public class WordTemplateUtil {
     static Pattern tplReg = Pattern.compile("[$@]\\{(.*?)}");
     static Pattern strTplReg = Pattern.compile("\\$\\{(.+?)(?:#col)?}");
     static Pattern imgTplReg = Pattern.compile("@\\{(.+?)(?:#col)?}");
-    static Pattern imgExtTplReg = Pattern.compile("@\\{([^:]+?):(\\d+)\\*(\\d+)(?:#col)?}");
+    static Pattern imgExtTplReg = Pattern.compile("@\\{([^:]+):(-?\\d*)\\*(-?\\d*)(?:#col)?}");
     static Pattern varReg = Pattern.compile("([$_a-zA-Z0-9.\\[\\]]+)$");
     /**
      * 列循环配置
@@ -365,8 +365,45 @@ public class WordTemplateUtil {
                 String cmd;
                 if (hasExt) {
                     cmd = matcher2.group(1);
-                    width = Integer.parseInt(matcher2.group(2));
-                    height = Integer.parseInt(matcher2.group(3));
+                    String widthStr = matcher2.group(2);
+                    String heightStr = matcher2.group(3);
+                    // 先获取图片值（用于计算比例）
+                    Object extVal = eval(cmd, variables);
+                    // 获取图片原始尺寸（用于计算比例）
+                    int originalWidth = 0;
+                    int originalHeight = 0;
+                    if (extVal instanceof BufferedImage) {
+                        originalWidth = ((BufferedImage) extVal).getWidth();
+                        originalHeight = ((BufferedImage) extVal).getHeight();
+                    } else if (extVal instanceof byte[]) {
+                        BufferedImage bufferedImage = ImageUtil.Bytes2Image((byte[]) extVal);
+                        originalWidth = bufferedImage.getWidth();
+                        originalHeight = bufferedImage.getHeight();
+                    } else if (extVal instanceof String) {
+                        byte[] imageBytes;
+                        if (extVal.toString().startsWith("data:image")) {
+                            imageBytes = Base64.getDecoder().decode(extVal.toString().replaceAll("data:image/.*;base64,", ""));
+                        } else {
+                            imageBytes = Base64.getDecoder().decode(extVal.toString());
+                        }
+                        BufferedImage bufferedImage = ImageUtil.Bytes2Image(imageBytes);
+                        originalWidth = bufferedImage.getWidth();
+                        originalHeight = bufferedImage.getHeight();
+                    }
+                    // 解析尺寸
+                    if (!widthStr.isEmpty() && !heightStr.isEmpty()) {
+                        // @{image:500*300} - 宽高都指定
+                        width = Integer.parseInt(widthStr);
+                        height = Integer.parseInt(heightStr);
+                    } else if (!widthStr.isEmpty()) {
+                        // @{image:500*} - 只指定宽度，高度按比例
+                        width = Integer.parseInt(widthStr);
+                        height = originalHeight > 0 ? (int) (width * originalHeight / originalWidth) : 0;
+                    } else if (!heightStr.isEmpty()) {
+                        // @{image:*300} - 只指定高度，宽度按比例
+                        height = Integer.parseInt(heightStr);
+                        width = originalHeight > 0 ? (int) (height * originalWidth / originalHeight) : 0;
+                    }
                 } else {
                     cmd = matcher.group(1);
                 }

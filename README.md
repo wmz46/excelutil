@@ -7,7 +7,7 @@
 <dependency>
   <groupId>com.iceolive</groupId>
   <artifactId>excelutil</artifactId>
-  <version>1.3.2</version>
+  <version>1.3.3</version>
 </dependency>
 ```
 ## 二、快速开始

@@ -44,6 +44,8 @@ ${description}  ${main_image.name}
  不支持网络路径，不想在框架中额外请求外部地址，避免下载木马文件或额外鉴权处理
 ```txt
 @{main_image_base64:100*200} //表示宽100，高200的图片 
+@{main_image.data:100*}      //表示宽100，高度按比例自动计算
+@{main_image.data:*200}      //表示高200，宽度按比例自动计算
 @{main_image.data:100*200}
 @{main_image.data} //不指定尺寸，将按原图尺寸输出
 ```
