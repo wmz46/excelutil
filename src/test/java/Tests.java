@@ -8,7 +8,7 @@ import com.iceolive.util.enums.ColumnType;
 import com.iceolive.util.model.*;
 import lombok.Data;
 import org.apache.commons.lang3.time.StopWatch;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.*;
 import org.junit.Test;
 
 import javax.imageio.ImageIO;
@@ -377,6 +377,29 @@ public class Tests {
 
         sw.stop();
         System.out.println("耗时: " + sw.getTime() + "ms");
+    }
+
+    // endregion
+
+    // region ---------- Word 模板测试（图片列表循环） ----------
+
+    /**
+     * 测试14：Word 模板 - 图片列表循环（带尺寸）
+     * 模板占位符: @{images[]:300*}
+     */
+    @Test
+    public void test14_wordImageListLoopWithSize() throws IOException {
+        List<BufferedImage> images = new ArrayList<>();
+        images.add(loadImage("20230627153447277.png"));
+        images.add(loadImage("20230627153447823.png"));
+        images.add(loadImage("20230627153447850.png"));
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("images", images);
+
+        XWPFDocument doc = WordTemplateUtil.load(path("wordtpl_width_list.docx"));
+        WordTemplateUtil.fillData(doc, data);
+        WordTemplateUtil.save(doc, outputPath("result_image_list.docx"));
     }
 
     // endregion

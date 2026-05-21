@@ -1296,8 +1296,10 @@ public class WordTemplateUtil {
         if (ObjectUtils.notEqual(run1.getUnderline(), run2.getUnderline())) {
             return false;
         }
-        if (ObjectUtils.notEqual(run1.getCTR().getRPr().toString().replaceAll("w:hint=\"[^\"]*\"", ""), run2.getCTR().getRPr().toString().replaceAll("w:hint=\"[^\"]*\"", ""))) {
-            return false;
+        if (run1.getCTR().getRPr() != null && run2.getCTR().getRPr() != null) {
+            if (ObjectUtils.notEqual(run1.getCTR().getRPr().toString().replaceAll("w:hint=\"[^\"]*\"", ""), run2.getCTR().getRPr().toString().replaceAll("w:hint=\"[^\"]*\"", ""))) {
+                return false;
+            }
         }
         return run1.getText(0) != null && run2.getText(0) != null;
     }
