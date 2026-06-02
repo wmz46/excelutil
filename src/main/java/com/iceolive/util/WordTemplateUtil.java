@@ -1069,52 +1069,24 @@ public class WordTemplateUtil {
     }
 
     private static XWPFRun cloneRun(XWPFRun run, XWPFRun newRun) {
-        newRun.setBold(run.isBold());
-        newRun.setColor(run.getColor());
         newRun.setText(run.text(), 0);
-        newRun.setItalic(run.isItalic());
-        newRun.setUnderline(run.getUnderline());
-        newRun.setStrikeThrough(run.isStrikeThrough());
-        newRun.setDoubleStrikethrough(run.isDoubleStrikeThrough());
-        newRun.setSmallCaps(run.isSmallCaps());
-        newRun.setCapitalized(run.isCapitalized());
-        newRun.setShadow(run.isShadowed());
-        newRun.setImprinted(run.isImprinted());
-        newRun.setEmbossed(run.isEmbossed());
-        newRun.setKerning(run.getKerning());
-        newRun.setFontFamily(run.getFontFamily());
-        if (run.getFontSizeAsDouble() != null) {
-            newRun.setFontSize(run.getFontSizeAsDouble());
-        }
-        newRun.setTextPosition(run.getTextPosition());
         if (run.getCTR().getRPr() != null) {
-            newRun.getCTR().setRPr(run.getCTR().getRPr());
+            if (newRun.getCTR().isSetRPr()) {
+                newRun.getCTR().unsetRPr();
+            }
+            newRun.getCTR().addNewRPr().set(run.getCTR().getRPr());
         }
         return newRun;
     }
 
     private static XWPFRun addCloneRun(XWPFParagraph paragraph, XWPFRun run) {
         XWPFRun r = paragraph.createRun();
-        r.setBold(run.isBold());
-        r.setColor(run.getColor());
         r.setText(run.text(), 0);
-        r.setItalic(run.isItalic());
-        r.setUnderline(run.getUnderline());
-        r.setStrikeThrough(run.isStrikeThrough());
-        r.setDoubleStrikethrough(run.isDoubleStrikeThrough());
-        r.setSmallCaps(run.isSmallCaps());
-        r.setCapitalized(run.isCapitalized());
-        r.setShadow(run.isShadowed());
-        r.setImprinted(run.isImprinted());
-        r.setEmbossed(run.isEmbossed());
-        r.setKerning(run.getKerning());
-        r.setFontFamily(run.getFontFamily());
-        if (run.getFontSizeAsDouble() != null) {
-            r.setFontSize(run.getFontSizeAsDouble());
-        }
-        r.setTextPosition(run.getTextPosition());
         if (run.getCTR().getRPr() != null) {
-            r.getCTR().setRPr(run.getCTR().getRPr());
+            if (r.getCTR().isSetRPr()) {
+                r.getCTR().unsetRPr();
+            }
+            r.getCTR().addNewRPr().set(run.getCTR().getRPr());
         }
         return r;
     }
@@ -1160,61 +1132,11 @@ public class WordTemplateUtil {
     }
 
     private static void cloneParagraphStyle(XWPFParagraph target, XWPFParagraph source) {
-        target.setAlignment(source.getAlignment());
-        target.setFontAlignment(source.getFontAlignment());
-        target.setVerticalAlignment(source.getVerticalAlignment());
-        target.setBorderTop(source.getBorderTop());
-        target.setBorderBottom(source.getBorderBottom());
-        target.setBorderLeft(source.getBorderLeft());
-        target.setBorderRight(source.getBorderRight());
-        target.setBorderBetween(source.getBorderBetween());
-        target.setPageBreak(source.isPageBreak());
-        target.setSpacingAfter(source.getSpacingAfter());
-        target.setSpacingAfterLines(source.getSpacingAfterLines());
-        target.setSpacingBefore(source.getSpacingBefore());
-        target.setSpacingBeforeLines(source.getSpacingBeforeLines());
-        target.setSpacingLineRule(source.getSpacingLineRule());
-        target.setSpacingBetween(source.getSpacingBetween());
-        target.setIndentationLeft(source.getIndentationLeft());
-        target.setIndentationRight(source.getIndentationRight());
-        target.setIndentationHanging(source.getIndentationLeft());
-        target.setIndentationFirstLine(source.getIndentationFirstLine());
-        target.setIndentFromLeft(source.getIndentFromLeft());
-        target.setIndentFromRight(source.getIndentFromRight());
-        target.setFirstLineIndent(source.getFirstLineIndent());
-        target.setStyle(source.getStyle());
+        if (target.getCTP().isSetPPr()) {
+            target.getCTP().unsetPPr();
+        }
         if (source.getCTP().getPPr() != null) {
-            CTPPr newppr = target.getCTP().addNewPPr();
-            if (source.getCTP().getPPr().getJc() != null) {
-                newppr.addNewJc().setVal(source.getCTP().getPPr().getJc().getVal());
-            }
-            CTSpacing spacing = source.getCTP().getPPr().getSpacing();
-            //段落间距
-            if (spacing != null) {
-                CTSpacing newSpacing = newppr.addNewSpacing();
-                newSpacing.setAfter(spacing.getAfter());
-                newSpacing.setAfterAutospacing(spacing.getAfterAutospacing());
-                newSpacing.setAfterLines(spacing.getAfterLines());
-                newSpacing.setBefore(spacing.getBefore());
-                newSpacing.setBeforeAutospacing(spacing.getBeforeAutospacing());
-                newSpacing.setBeforeLines(spacing.getBeforeLines());
-                newSpacing.setLine(newSpacing.getLine());
-                newSpacing.setLineRule(spacing.getLineRule());
-            }
-            //段落缩进
-            CTInd ind = source.getCTP().getPPr().getInd();
-            if (ind != null) {
-                CTInd newInd = target.getCTP().getPPr().addNewInd();
-                newInd.setFirstLine(ind.getFirstLine());
-                newInd.setFirstLineChars(ind.getFirstLineChars());
-                newInd.setHanging(ind.getHanging());
-                newInd.setHangingChars(ind.getHangingChars());
-                newInd.setLeft(ind.getLeft());
-                newInd.setLeftChars(ind.getLeftChars());
-                newInd.setRight(ind.getRight());
-                newInd.setRightChars(ind.getRightChars());
-            }
-
+            target.getCTP().setPPr(source.getCTP().getPPr());
         }
     }
 
